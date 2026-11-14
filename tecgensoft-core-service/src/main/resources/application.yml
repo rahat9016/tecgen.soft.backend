@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: tecgensoft-core-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  messages:
+    basename: messages.messages
+    fallback-to-system-locale: false
+    encoding: UTF-8
+bootstrap:
+  super-admin:
+    enabled: ${SUPER_ADMIN_BOOTSTRAP_ENABLED:false}
+    first-name: ${SUPER_ADMIN_FIRST_NAME:}
+    last-name: ${SUPER_ADMIN_LAST_NAME:}
+    email: ${SUPER_ADMIN_EMAIL:}
+    password: ${SUPER_ADMIN_PASSWORD:}
+branch-admin:
+  email-domain: ${BRANCH_ADMIN_EMAIL_DOMAIN}
+  common-password: ${BRANCH_ADMIN_COMMON_PASSWORD}
+
+storage:
+  type: ${STORAGE_TYPE:minio}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 900000
+  refresh-expiration: 604800000
+
+file:
+  upload-dir: uploads
+  allowed-extensions: jpg,jpeg,png,webp,pdf
+  max-size-bytes: 10485760
+internal:
+  service-key: ${INTERNAL_SERVICE_KEY}

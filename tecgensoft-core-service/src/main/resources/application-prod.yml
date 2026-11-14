@@ -1,0 +1,45 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 3s
+  cache:
+    type: redis
+    cache-names:
+      - users
+    redis:
+      time-to-live: 30m
+      cache-null-values: false
+      use-key-prefix: true
+
+storage:
+  type: ${STORAGE_TYPE:s3}
+
+aws:
+  s3:
+    region: ${S3_REGION:eu-north-1}
+    bucket-name: ${S3_BUCKET_NAME:familie-munshi-storage}
+    public-base-url: ${S3_PUBLIC_BASE_URL:}
+logging:
+  level:
+    root: WARN
+    com.familiemunshi: INFO

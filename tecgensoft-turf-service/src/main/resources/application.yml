@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: tecgensoft-turf-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/tecgensoft_turf}
+    username: ${DATABASE_USERNAME:tecgensoft}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+server:
+  port: ${PORT:8081}
+core:
+  url: ${CORE_URL:http://localhost:8080}
+  service-key: ${INTERNAL_SERVICE_KEY}

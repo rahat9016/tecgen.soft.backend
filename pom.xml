@@ -1,0 +1,1 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>com.tecgensoft</groupId><artifactId>tecgensoft</artifactId><version>0.0.1-SNAPSHOT</version><packaging>pom</packaging><modules><module>tecgensoft-core-service</module><module>tecgensoft-turf-service</module></modules></project>
