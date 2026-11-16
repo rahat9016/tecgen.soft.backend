@@ -35,6 +35,8 @@ build/
 *.log
 .env
 .env.*
+.postgres-data/
+.minio-data/
 docker-compose*.yml
 README.md
 .DS_Store

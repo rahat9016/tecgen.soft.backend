@@ -2,9 +2,10 @@ spring:
   application:
     name: tecgensoft-turf-service
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/tecgensoft_turf}
-    username: ${DATABASE_USERNAME:tecgensoft}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tecgensoft_db}
+    username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: validate
