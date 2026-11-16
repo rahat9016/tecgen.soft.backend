@@ -42,4 +42,4 @@ aws:
 logging:
   level:
     root: WARN
-    com.familiemunshi: INFO
+    com.tecgensoft: INFO

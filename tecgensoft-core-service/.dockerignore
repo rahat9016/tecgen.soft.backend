@@ -1,6 +1,0 @@
-target/
-.git/
-.idea/
-.env
-.env.*
-*.log
