@@ -42,7 +42,14 @@ public final class PermissionPolicy {
                     PermissionCode.USER_ROLE_MANAGE,
 
                     PermissionCode.USER_ROLE_ASSIGN,
-                    PermissionCode.USER_ROLE_REMOVE
+                    PermissionCode.USER_ROLE_REMOVE,
+
+                    PermissionCode.PACKAGE_CREATE,
+                    PermissionCode.PACKAGE_READ,
+                    PermissionCode.PACKAGE_UPDATE,
+                    PermissionCode.SUBSCRIPTION_ASSIGN,
+                    PermissionCode.SUBSCRIPTION_READ,
+                    PermissionCode.SUBSCRIPTION_UPDATE
             );
 
     // ========================================

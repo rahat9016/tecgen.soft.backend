@@ -87,22 +87,28 @@ public class CoreClient {
   }
 
   public Entitlements entitlements(UUID org) {
+    Entitlements entitlements;
     try {
-      var e =
+      entitlements =
           client
               .get()
               .uri("/internal/v1/organizations/{id}/entitlements?product=TURF", org)
               .retrieve()
               .body(Entitlements.class);
-      if (e == null
-          || !org.equals(e.organizationId())
-          || !e.active()
-          || e.features() == null
-          || e.limits() == null) throw new IllegalStateException();
-      return e;
     } catch (Exception ex) {
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "Entitlements cannot be verified");
     }
+    if (entitlements == null
+        || !org.equals(entitlements.organizationId())
+        || entitlements.features() == null
+        || entitlements.limits() == null)
+      throw new ResponseStatusException(
+          HttpStatus.SERVICE_UNAVAILABLE, "Entitlements cannot be verified");
+    if (!entitlements.active())
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "Organization has no active TURF subscription: " + entitlements.subscriptionStatus());
+    return entitlements;
   }
 }

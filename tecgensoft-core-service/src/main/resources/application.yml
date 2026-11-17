@@ -26,6 +26,9 @@ organization-admin:
   email-domain: ${ORGANIZATION_ADMIN_EMAIL_DOMAIN}
   common-password: ${ORGANIZATION_ADMIN_COMMON_PASSWORD}
 
+internal:
+  service-key: ${INTERNAL_SERVICE_KEY:}
+
 storage:
   type: ${STORAGE_TYPE:minio}
 

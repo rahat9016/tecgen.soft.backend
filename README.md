@@ -159,11 +159,11 @@ S3 uses the AWS SDK credential provider chain, such as a runtime IAM role or `AW
 
 Access tokens last 15 minutes; refresh tokens last 7 days in the checked-in core configuration. Core uploads allow `jpg,jpeg,png,webp,pdf`, up to 10 MB per file/request.
 
-## Subscription plans and entitlements
+## Packages, subscriptions, and entitlements
 
-Plans are API-managed product packages, not hardcoded Basic/Pro tiers. No fixed commercial tier prices are defined in this repository. Currently the accepted product is `TURF`.
+Packages are managed through the Core API, not hardcoded Basic/Pro tiers. No fixed commercial tier prices are defined in this repository. Supported products are `TURF` and `HOTEL`.
 
-A package contains `code`, `displayName`, `product`, `description`, three-letter uppercase `currency`, nonnegative `price`, `features`, `limits`, `active`, and `availableForSale`. Creating another package with the same code creates the next version. Existing subscriptions retain their package reference; assigning a new package is an explicit subscription operation.
+A package contains `code`, `displayName`, `product`, `description`, three-letter uppercase `currency`, nonnegative `price`, `features`, `limits`, `active`, and `availableForSale`. Creating another package with the same code creates the next version. Existing subscriptions retain their package-version reference; assigning a new package is an explicit subscription operation. Each organization may have one active subscription per product, so Turf and Hotel can be subscribed independently.
 
 | Feature | Enables |
 | --- | --- |
@@ -175,12 +175,13 @@ A package contains `code`, `displayName`, `product`, `description`, three-letter
 | `VENUE_SETTINGS` | Venue settings and public venue information |
 | `WEBSITE_CONTENT` | Hero, about, gallery, service content |
 | `BASIC_REPORTS` | Organization reports |
+| `HOTEL_MANAGEMENT`, `ROOM_MANAGEMENT`, `ROOM_AVAILABILITY`, `RESERVATION_MANAGEMENT`, `GUEST_MANAGEMENT`, `CHECK_IN_CHECK_OUT`, `HOTEL_PAYMENT_MANAGEMENT`, `HOTEL_SETTINGS` | Hotel configuration, rooms, reservations, guests, and hotel payments |
 
-Supported limit keys include `MAX_COURTS`, with nonnegative integer values. Turf data and permissions are scoped directly to an organization.
+Supported product-specific limit keys are `MAX_COURTS` for Turf and `MAX_ROOMS` for Hotel, with nonnegative integer values. Turf data and permissions are scoped directly to an organization.
 
 Subscriptions accept `ACTIVE`, `SUSPENDED`, or `CANCELLED`, a `MONTHLY` or `YEARLY` billing period, `startsAt`, `endsAt`, `packageId`, and `agreedPrice`. Dates use ISO-8601 instants. Entitlements account for organization activity, subscription status, and the subscription time window; responses can indicate `NOT_STARTED`, `EXPIRED`, or `INACTIVE`. Replacing an active subscription marks the previous active record `REPLACED` internally.
 
-Feature entitlement and user permission are separate requirements. Buying a feature does not automatically grant every user permission to administer it. Platform super administrators manage SaaS provisioning; organization role assignments control tenant operations.
+Feature entitlement and user permission are separate requirements. Buying a feature does not automatically grant every user permission to administer it. Platform super administrators manage packages and subscriptions; organization role assignments control tenant operations.
 
 ## Tenant onboarding
 
@@ -226,36 +227,29 @@ Paths below are relative to `/api/v1`. Protected calls use `Authorization: Beare
 
 Legacy list APIs generally use one-based `page` and `limit` (defaults `1` and `20`). SaaS lists use zero-based `page`; turf booking lists also default to `page=0`.
 
-### Core SaaS provisioning
+### Core package and subscription management
 
-All paths below are relative to `/api/v1/system/saas` and require a platform super administrator. JSON request schemas are in [SaasRequests.java](tecgensoft-core-service/src/main/java/com/familiemunshi/http/dtos/requests/SaasRequests.java).
+Package and subscription management paths require the corresponding platform permission (`PACKAGE_*` or `SUBSCRIPTION_*`). Package creation request fields are defined in [CreatePackageRequest.java](tecgensoft-core-service/src/main/java/com/tecgensoft/http/dtos/requests/CreatePackageRequest.java).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET, POST | `/organizations` | List/create organizations |
-| GET, PATCH | `/organizations/{id}` | Read organization; change name, activity, or admin |
-| GET, POST | `/packages` | List/create versioned packages |
-| PATCH | `/packages/{id}/availability` | Change `active` / `availableForSale` |
-| POST | `/organizations/{id}/subscriptions` | Assign subscription |
-| PATCH | `/organizations/{id}/subscription` | Replace/update subscription through the same subscription operation |
-| GET | `/organizations/{id}/entitlements` | Inspect TURF entitlements |
-| POST | `/organizations/{id}/domains` | Register hostname and generate challenge |
-| POST | `/organizations/{id}/domains/{domainId}/verify` | Verify DNS TXT challenge |
-| PATCH | `/organizations/{id}/role-permissions` | Set organization role permission codes |
+| GET, POST | `/api/v1/system/packages` | List/create versioned packages; optional `?product=TURF` or `?product=HOTEL` filter |
+| PATCH | `/api/v1/system/packages/{packageId}/availability` | Change `active` / `availableForSale` |
+| GET | `/api/v1/system/organizations/{organizationId}/subscriptions` | List subscription history |
+| POST | `/api/v1/system/organizations/{organizationId}/subscriptions` | Assign a package subscription |
+| PATCH | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/status` | Activate, suspend, or cancel a subscription |
 
 ### Internal core APIs
 
-Require `X-Service-Key: <INTERNAL_SERVICE_KEY>`. These endpoints support service-to-service calls.
+The entitlement endpoint requires `X-Service-Key: <INTERNAL_SERVICE_KEY>` and supports service-to-service package checks. Tenant resolution and delegated access-check routes listed in older API notes are not implemented in the current Core controller source yet.
 
 | Method | Path | Body / query |
 | --- | --- | --- |
-| POST | `/internal/v1/tenants/resolve` | `{"hostname":"booking.example.com"}` |
-| POST | `/internal/v1/access/check` | `organizationId`, `product`, `permissionCode`; also requires user Bearer token |
-| GET | `/internal/v1/organizations/{id}/entitlements` | `?product=TURF` |
+| GET | `/internal/v1/organizations/{organizationId}/entitlements` | `?product=TURF` or `?product=HOTEL`; returns the effective feature and limit entitlements |
 
 ### Turf administrative APIs
 
-Prefix: `/api/v1/turf/organizations/{organizationId}`. Every call requires a user Bearer token and `X-Frontend-Host: <verified tenant hostname>`. Core checks the relevant organization permission and subscription feature.
+Prefix: `/api/v1/turf/organizations/{organizationId}`. Every call requires a user Bearer token and `X-Frontend-Host: <verified tenant hostname>`. These routes are written to check organization permission through Core; the delegated access-check controller is not implemented yet.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -307,7 +301,7 @@ Copy `data.accessToken` from the response into `TOKEN`. The following is an exam
 
 ```sh
 export TOKEN='YOUR_SUPER_ADMIN_ACCESS_TOKEN'
-curl -sS http://localhost:8080/api/v1/system/saas/packages \
+curl -sS http://localhost:8080/api/v1/system/packages \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
@@ -318,9 +312,7 @@ curl -sS http://localhost:8080/api/v1/system/saas/packages \
     "currency":"BDT",
     "price":1000,
     "features":["COURT_MANAGEMENT","BOOKING_MANAGEMENT","ONLINE_BOOKING","PAYMENT_MANAGEMENT","REFUND_MANAGEMENT","VENUE_SETTINGS","WEBSITE_CONTENT","BASIC_REPORTS"],
-    "limits":{"MAX_COURTS":3},
-    "active":true,
-    "availableForSale":true
+    "limits":{"MAX_COURTS":3}
   }'
 ```
 

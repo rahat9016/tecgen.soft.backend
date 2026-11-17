@@ -55,6 +55,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         // =========== PUBLIC — infrastructure & API docs ===========
                         .requestMatchers(API_DOCS, SWAGGER_UI, "/api-docs-ui/**", "/ws/**").permitAll()
+                        .requestMatchers("/internal/v1/**").permitAll()
 
                         // =========== PUBLIC — authentication ===========
                         .requestMatchers(POST, API_BASE + AUTH + "/login").permitAll()

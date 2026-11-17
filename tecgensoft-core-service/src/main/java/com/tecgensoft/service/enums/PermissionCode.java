@@ -44,6 +44,14 @@ public enum PermissionCode {
     PRODUCT_UPDATE("PRODUCT_UPDATE", "PRODUCT", "Update products"),
     PRODUCT_DELETE("PRODUCT_DELETE", "PRODUCT", "Delete products"),
 
+    // PACKAGE AND SUBSCRIPTION MANAGEMENT (PLATFORM)
+    PACKAGE_CREATE("PACKAGE_CREATE", "PACKAGE", "Create software packages"),
+    PACKAGE_READ("PACKAGE_READ", "PACKAGE", "View software packages"),
+    PACKAGE_UPDATE("PACKAGE_UPDATE", "PACKAGE", "Update software packages"),
+    SUBSCRIPTION_ASSIGN("SUBSCRIPTION_ASSIGN", "SUBSCRIPTION", "Assign organization subscriptions"),
+    SUBSCRIPTION_READ("SUBSCRIPTION_READ", "SUBSCRIPTION", "View organization subscriptions"),
+    SUBSCRIPTION_UPDATE("SUBSCRIPTION_UPDATE", "SUBSCRIPTION", "Update organization subscriptions"),
+
     // SALES MANAGEMENT
     SALE_CREATE("SALE_CREATE", "SALE", "Create sales"),
     SALE_READ("SALE_READ", "SALE", "View sales"),
@@ -128,6 +136,9 @@ public enum PermissionCode {
 
                 PERMISSION_READ.getCode(), ROLE_PERMISSION_MANAGE.getCode(),
 
-                USER_CREATE.getCode(), USER_READ.getCode(), USER_UPDATE.getCode(), USER_DELETE.getCode(), USER_ROLE_MANAGE.getCode());
+                USER_CREATE.getCode(), USER_READ.getCode(), USER_UPDATE.getCode(), USER_DELETE.getCode(), USER_ROLE_MANAGE.getCode(),
+
+                PACKAGE_CREATE.getCode(), PACKAGE_READ.getCode(), PACKAGE_UPDATE.getCode(),
+                SUBSCRIPTION_ASSIGN.getCode(), SUBSCRIPTION_READ.getCode(), SUBSCRIPTION_UPDATE.getCode());
     }
 }
