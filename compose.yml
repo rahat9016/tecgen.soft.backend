@@ -45,6 +45,7 @@ services:
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       SPRING_PROFILES_ACTIVE: local
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       DATABASE_URL: jdbc:postgresql://core-db:5432/tecgensoft_core
       DATABASE_USERNAME: tecgensoft
       DATABASE_PASSWORD: ${CORE_DB_PASSWORD}
