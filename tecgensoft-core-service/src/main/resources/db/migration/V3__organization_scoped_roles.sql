@@ -50,6 +50,10 @@ ALTER TABLE public.organizations ALTER COLUMN code SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_organizations_code ON public.organizations(code);
 
 DO $$
+DECLARE
+    old_permission RECORD;
+    target_permission_id UUID;
+    target_name VARCHAR(255);
 BEGIN
     IF to_regclass('public.roles') IS NOT NULL THEN
         ALTER TABLE public.roles ADD COLUMN IF NOT EXISTS organization_id UUID;
