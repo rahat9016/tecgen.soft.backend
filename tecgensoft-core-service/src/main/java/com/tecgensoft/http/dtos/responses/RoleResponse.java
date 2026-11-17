@@ -1,6 +1,6 @@
 package com.tecgensoft.http.dtos.responses;
 
-import com.tecgensoft.service.entities.Branch;
+import com.tecgensoft.service.entities.Organization;
 import com.tecgensoft.service.entities.Role;
 import com.tecgensoft.service.enums.RoleScope;
 import lombok.*;
@@ -17,7 +17,7 @@ public class RoleResponse {
     private Boolean isSystem;
     private RoleScope scope;
     private Boolean isActive;
-    private Branch branch;
+    private Organization organization;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -28,7 +28,7 @@ public class RoleResponse {
         this.isSystem = role.isSystem();
         this.scope = role.scope();
         this.isActive = role.isActive();
-        this.branch = role.branch();
+        this.organization = role.organization();
         this.createdAt = role.createdAt();
         this.updatedAt = role.updatedAt();
     }

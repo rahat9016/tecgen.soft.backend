@@ -9,5 +9,6 @@ import java.util.UUID;
 public interface OrganizationRepository extends JpaRepository<OrganizationDao, UUID> {
     boolean existsByName(String name);
     boolean existsByNameAndIdNot(String name, UUID id);
+    boolean existsByCode(String code);
     List<OrganizationDao> findAllByOrderByNameAsc();
 }

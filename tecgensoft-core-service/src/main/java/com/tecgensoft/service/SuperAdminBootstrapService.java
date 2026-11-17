@@ -90,7 +90,7 @@ public class SuperAdminBootstrapService {
                                         "Platform Super Administrator"
                                 )
                                 .scope(RoleScope.PLATFORM)
-                                .branch(null)
+                                .organization(null)
                                 .isSystem(true)
                                 .isActive(true)
                                 .build()
@@ -113,7 +113,7 @@ public class SuperAdminBootstrapService {
         }
 
         if (role.getScope() != RoleScope.PLATFORM
-                || role.getBranch() != null) {
+                || role.getOrganization() != null) {
 
             throw new IllegalStateException(
                     "SYS_SUPER_ADMIN must be platform-scoped"

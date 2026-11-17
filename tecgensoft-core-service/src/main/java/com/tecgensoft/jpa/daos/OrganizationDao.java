@@ -22,6 +22,12 @@ public class OrganizationDao {
     @Column(nullable = false, length = 255, unique = true)
     private String name;
 
+    @Column(nullable = false, length = 40, unique = true)
+    private String code;
+
+    @Column(name = "logo_url")
+    private String logoUrl;
+
     @Column(columnDefinition = "TEXT")
     private String address;
 
@@ -40,8 +46,9 @@ public class OrganizationDao {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public OrganizationDao(String name, String address, String phone, String email) {
+    public OrganizationDao(String name, String code, String address, String phone, String email) {
         this.name = name;
+        this.code = code;
         this.address = address;
         this.phone = phone;
         this.email = email;

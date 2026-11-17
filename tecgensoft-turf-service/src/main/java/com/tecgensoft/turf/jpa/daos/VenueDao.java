@@ -15,7 +15,7 @@ public class VenueDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
-  private UUID branchId;
+
   private String name;
   private String phone;
   private String address;

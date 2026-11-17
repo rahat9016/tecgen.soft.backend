@@ -18,12 +18,12 @@ import java.util.UUID;
 public class StorageFileSupport {
 
     // Allowed public storage directories
-    public static final String BRANCH_LOGOS = "branches/logos";
+    public static final String ORGANIZATION_LOGOS = "organizations/logos";
     public static final String COMPANY_LOGOS = "company/logos";
     public static final String PRODUCT_IMAGES = "products/images";
 
     private static final Set<String> PUBLIC_DIRECTORIES = Set.of(
-            BRANCH_LOGOS,
+            ORGANIZATION_LOGOS,
             COMPANY_LOGOS,
             PRODUCT_IMAGES
     );

@@ -5,8 +5,8 @@ import java.util.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BookingRepository extends JpaRepository<BookingDao, UUID> {
-  Optional<BookingDao> findByIdAndOrganizationIdAndBranchId(
-      UUID id, UUID organizationId, UUID branchId);
+  Optional<BookingDao> findByIdAndOrganizationId(
+      UUID id, UUID organizationId);
 
-  List<BookingDao> findByOrganizationIdAndBranchId(UUID organizationId, UUID branchId);
+  List<BookingDao> findByOrganizationId(UUID organizationId);
 }

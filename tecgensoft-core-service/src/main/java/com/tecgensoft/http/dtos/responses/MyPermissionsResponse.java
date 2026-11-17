@@ -10,12 +10,12 @@ import java.util.UUID;
 public record MyPermissionsResponse(
         UUID userId,
         RoleScope scope,
-        UUID branchId,
-        String branchCode,
-        String branchName,
+        UUID organizationId,
+        String organizationCode,
+        String organizationName,
         List<String> roles,
         List<ModulePermissionTreeResponse> permissions,
-        List<BranchPermissionResponse> branches
+        List<OrganizationPermissionResponse> organizations
 ) {
 
     public static MyPermissionsResponse platform(
@@ -35,35 +35,35 @@ public record MyPermissionsResponse(
         );
     }
 
-    public static MyPermissionsResponse branch(
+    public static MyPermissionsResponse organization(
             UUID userId,
-            BranchPermissionResponse branch
+            OrganizationPermissionResponse organization
     ) {
         return new MyPermissionsResponse(
                 userId,
-                RoleScope.BRANCH,
-                branch.branchId(),
-                branch.branchCode(),
-                branch.branchName(),
-                branch.roles(),
-                branch.permissions(),
+                RoleScope.ORGANIZATION,
+                organization.organizationId(),
+                organization.organizationCode(),
+                organization.organizationName(),
+                organization.roles(),
+                organization.permissions(),
                 null
         );
     }
 
-    public static MyPermissionsResponse multipleBranches(
+    public static MyPermissionsResponse multipleOrganizations(
             UUID userId,
-            List<BranchPermissionResponse> branches
+            List<OrganizationPermissionResponse> organizations
     ) {
         return new MyPermissionsResponse(
                 userId,
-                RoleScope.BRANCH,
+                RoleScope.ORGANIZATION,
                 null,
                 null,
                 null,
                 null,
                 null,
-                branches
+                organizations
         );
     }
 }

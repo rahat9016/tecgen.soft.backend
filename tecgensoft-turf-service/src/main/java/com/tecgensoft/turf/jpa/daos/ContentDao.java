@@ -15,7 +15,7 @@ public class ContentDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
-  private UUID branchId;
+
   private String kind;
   private String title;
   private String body;

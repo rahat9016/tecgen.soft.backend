@@ -39,15 +39,15 @@ public final class RoleNameUtil {
         return "SYS_" + normalized;
     }
 
-    public static String branchRole(
-            String branchCode,
+    public static String organizationRole(
+            String organizationCode,
             String name
     ) {
 
-        String code = normalize(branchCode);
+        String code = normalize(organizationCode);
         String roleName = normalize(name);
 
-        String prefix = code + "_BRANCH_";
+        String prefix = code + "_ORGANIZATION_";
 
         if (roleName.startsWith(prefix)) {
             return roleName;

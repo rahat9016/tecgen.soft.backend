@@ -6,11 +6,13 @@ import com.tecgensoft.common.utils.Util;
 import com.tecgensoft.jpa.daos.PermissionDao;
 import com.tecgensoft.jpa.daos.RoleDao;
 import com.tecgensoft.jpa.daos.UserPlatformRoleDao;
+import com.tecgensoft.jpa.daos.OrganizationDao;
 import com.tecgensoft.jpa.repositories.*;
 import com.tecgensoft.mapper.RoleMapper;
 import com.tecgensoft.service.entities.Role;
 import com.tecgensoft.service.entities.RolePermissions;
 import com.tecgensoft.service.entities.UserPlatformRole;
+import com.tecgensoft.service.exceptions.OrganizationNotFoundException;
 import com.tecgensoft.service.enums.PermissionCode;
 import com.tecgensoft.service.enums.RoleScope;
 import com.tecgensoft.service.exceptions.*;
@@ -34,6 +36,8 @@ public class RoleService {
     private final PermissionAuthorizationService permissionAuthorizationService;
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
+    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
 
     public Role createSystemRole(Role role) {
         Role newRole = role
@@ -51,6 +55,61 @@ public class RoleService {
         RoleDao savedRole = roleRepository.save(roleMapper);
 
         return RoleMapper.toEntity(savedRole);
+    }
+
+    @Transactional
+    public Role createOrganizationRole(UUID callerId, UUID organizationId, Role role) {
+        permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "ROLE_CREATE");
+        OrganizationDao organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new OrganizationNotFoundException(organizationId));
+        String name = role.name().trim();
+        if (name.isBlank() || roleRepository.existsByNameIgnoreCaseAndScopeAndOrganization_Id(
+                name, RoleScope.ORGANIZATION, organizationId)) {
+            throw new RoleAlreadyExistsException(name);
+        }
+        Role organizationRole = role.withName(name).withScope(RoleScope.ORGANIZATION)
+                .withOrganization(com.tecgensoft.mapper.OrganizationMapper.toEntity(organization))
+                .withIsSystem(false).withIsActive(true);
+        RoleDao dao = RoleMapper.toDao(organizationRole);
+        dao.setOrganization(organization);
+        return RoleMapper.toEntity(roleRepository.saveAndFlush(dao));
+    }
+
+    @Transactional
+    public java.util.List<Role> getOrganizationRoles(UUID callerId, UUID organizationId) {
+        permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "ROLE_READ");
+        return roleRepository.findByOrganization_IdAndScopeOrderByNameAsc(organizationId, RoleScope.ORGANIZATION)
+                .stream().map(RoleMapper::toEntity).toList();
+    }
+
+    @Transactional
+    public RolePermissions assignOrganizationRolePermissions(UUID callerId, UUID organizationId, RolePermissions assignment) {
+        permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "ROLE_PERMISSION_MANAGE");
+        RoleDao role = roleRepository.findByIdAndOrganization_IdAndScope(
+                        assignment.roleId(), organizationId, RoleScope.ORGANIZATION)
+                .orElseThrow(() -> new RoleNotFoundException(assignment.roleId()));
+        if (Boolean.TRUE.equals(role.getIsSystem())) {
+            throw new InvalidRolePermissionAssignmentException("Cannot modify a built-in organization role");
+        }
+        Set<String> requested = assignment.permissionCodes();
+        for (String code : requested) {
+            if (!PermissionCode.isSuppoerted(code) || !PermissionPolicy.isOrganizationPermission(code)) {
+                throw new InvalidRolePermissionAssignmentException(code + " is not an organization permission");
+            }
+        }
+        Set<String> callerPermissions = new HashSet<>(userOrganizationRoleRepository
+                .findEffectivePermissionCodes(callerId, organizationId, RoleScope.ORGANIZATION));
+        if (!callerPermissions.containsAll(requested)) {
+            throw new PermissionDeniedException("You cannot assign permissions beyond your organization role");
+        }
+        var permissions = permissionRepository.findAllByNameIn(requested);
+        if (permissions.size() != requested.size()) {
+            throw new PermissionNotFoundException(String.join(", ", requested));
+        }
+        role.getPermissions().addAll(permissions);
+        RoleDao saved = roleRepository.saveAndFlush(role);
+        return new RolePermissions(saved.getId(), saved.getPermissions().stream()
+                .map(PermissionDao::getName).collect(Collectors.toSet()));
     }
 
     public Role getRoleById(UUID roleId) {

@@ -15,16 +15,18 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequiredArgsConstructor
 @Validated
-@RequestMapping("/api/v1/public/turf/branches/{branch}")
+@RequestMapping("/api/v1/public/turf/organizations/{organizationId}")
 public class PublicTurfController {
   private final CoreClient core;
   private final TurfService service;
 
-  private TurfService.Context context(String host, UUID branch, String feature) {
+  private TurfService.Context context(String host, UUID organizationId, String feature) {
     var t = core.resolve(host);
+    if (!t.organizationId().equals(organizationId))
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found");
     if (!core.entitlements(t.organizationId()).features().contains(feature))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Feature disabled");
-    return new TurfService.Context(t.organizationId(), branch);
+    return new TurfService.Context(t.organizationId());
   }
 
   private Object ok(Object value) {
@@ -32,50 +34,50 @@ public class PublicTurfController {
   }
 
   @GetMapping("/venue")
-  public Object venue(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID branch) {
+  public Object venue(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
     return ok(
         com.tecgensoft.turf.mapper.TurfMapper.toEntity(
-            service.venue(context(host, branch, "VENUE_SETTINGS"))));
+            service.venue(context(host, organizationId, "VENUE_SETTINGS"))));
   }
 
   @GetMapping("/content")
-  public Object content(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID branch) {
-    return ok(service.contents(context(host, branch, "WEBSITE_CONTENT"), true));
+  public Object content(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
+    return ok(service.contents(context(host, organizationId, "WEBSITE_CONTENT"), true));
   }
 
   @GetMapping("/courts")
-  public Object courts(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID branch) {
-    return ok(service.courts(context(host, branch, "COURT_MANAGEMENT"), true));
+  public Object courts(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
+    return ok(service.courts(context(host, organizationId, "COURT_MANAGEMENT"), true));
   }
 
   @GetMapping("/availability")
   public Object availability(
       @RequestHeader("X-Frontend-Host") String host,
-      @PathVariable UUID branch,
+      @PathVariable UUID organizationId,
       @RequestParam UUID courtId,
       @RequestParam LocalDate date,
       @RequestParam(defaultValue = "1") @Min(1) @Max(24) int durationHours) {
     return ok(
         service.availability(
-            context(host, branch, "ONLINE_BOOKING"), courtId, date, durationHours));
+            context(host, organizationId, "ONLINE_BOOKING"), courtId, date, durationHours));
   }
 
   @PostMapping("/holds")
   @ResponseStatus(HttpStatus.CREATED)
   public Object hold(
       @RequestHeader("X-Frontend-Host") String host,
-      @PathVariable UUID branch,
+      @PathVariable UUID organizationId,
       @Valid @RequestBody Hold r) {
-    return ok(service.hold(context(host, branch, "ONLINE_BOOKING"), r.slot().toEntity()));
+    return ok(service.hold(context(host, organizationId, "ONLINE_BOOKING"), r.slot().toEntity()));
   }
 
   @PatchMapping("/holds/{id}/release")
   public Object release(
       @RequestHeader("X-Frontend-Host") String host,
-      @PathVariable UUID branch,
+      @PathVariable UUID organizationId,
       @PathVariable UUID id,
       @Valid @RequestBody Secret r) {
-    service.release(context(host, branch, "ONLINE_BOOKING"), id, r.secret());
+    service.release(context(host, organizationId, "ONLINE_BOOKING"), id, r.secret());
     return ok("Hold released");
   }
 
@@ -83,18 +85,18 @@ public class PublicTurfController {
   @ResponseStatus(HttpStatus.CREATED)
   public Object checkout(
       @RequestHeader("X-Frontend-Host") String host,
-      @PathVariable UUID branch,
+      @PathVariable UUID organizationId,
       @Valid @RequestBody Checkout r) {
-    return ok(service.checkout(context(host, branch, "ONLINE_BOOKING"), r.toEntity()));
+    return ok(service.checkout(context(host, organizationId, "ONLINE_BOOKING"), r.toEntity()));
   }
 
   @PatchMapping("/bookings/{id}/payment-reference")
   public Object reference(
       @RequestHeader("X-Frontend-Host") String host,
-      @PathVariable UUID branch,
+      @PathVariable UUID organizationId,
       @PathVariable UUID id,
       @Valid @RequestBody Reference r) {
-    service.submitReference(context(host, branch, "ONLINE_BOOKING"), id, r.toEntity());
+    service.submitReference(context(host, organizationId, "ONLINE_BOOKING"), id, r.toEntity());
     return ok("Reference submitted for admin verification");
   }
 }

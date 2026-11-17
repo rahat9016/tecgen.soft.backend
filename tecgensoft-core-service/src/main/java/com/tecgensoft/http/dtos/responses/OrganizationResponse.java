@@ -8,6 +8,8 @@ import java.util.UUID;
 public record OrganizationResponse(
         UUID id,
         String name,
+        String code,
+        String logoUrl,
         String address,
         String phone,
         String email,
@@ -19,6 +21,8 @@ public record OrganizationResponse(
         this(
                 organization.id(),
                 organization.name(),
+                organization.code(),
+                organization.logoUrl(),
                 organization.address(),
                 organization.phone(),
                 organization.email(),

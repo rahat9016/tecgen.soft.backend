@@ -11,6 +11,8 @@ public final class OrganizationMapper {
         return new Organization(
                 dao.getId(),
                 dao.getName(),
+                dao.getCode(),
+                dao.getLogoUrl(),
                 dao.getAddress(),
                 dao.getPhone(),
                 dao.getEmail(),

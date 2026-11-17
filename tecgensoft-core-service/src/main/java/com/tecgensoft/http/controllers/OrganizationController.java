@@ -3,6 +3,7 @@ package com.tecgensoft.http.controllers;
 import com.tecgensoft.http.dtos.requests.CreateOrganizationRequest;
 import com.tecgensoft.http.dtos.requests.UpdateOrganizationRequest;
 import com.tecgensoft.http.dtos.responses.OrganizationResponse;
+import com.tecgensoft.http.dtos.responses.CreatedOrganizationResponse;
 import com.tecgensoft.http.dtos.responses.SuccessResponse;
 import com.tecgensoft.service.OrganizationService;
 import com.tecgensoft.service.entities.Organization;
@@ -27,18 +28,18 @@ public class OrganizationController {
     private final OrganizationService organizationService;
 
     @PostMapping
-    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'BRANCH_CREATE')")
-    public ResponseEntity<SuccessResponse<OrganizationResponse>> createOrganization(
+    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'ORGANIZATION_CREATE')")
+    public ResponseEntity<SuccessResponse<CreatedOrganizationResponse>> createOrganization(
             @Valid @RequestBody CreateOrganizationRequest request
     ) {
-        Organization organization = organizationService.createOrganization(request);
+        var created = organizationService.createOrganization(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                SuccessResponse.of("Organization created successfully", new OrganizationResponse(organization))
+                SuccessResponse.of("Organization created successfully", new CreatedOrganizationResponse(created))
         );
     }
 
     @GetMapping
-    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'BRANCH_LIST')")
+    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'ORGANIZATION_LIST')")
     public ResponseEntity<SuccessResponse<List<OrganizationResponse>>> getAllOrganizations() {
         List<OrganizationResponse> organizations = organizationService.getAllOrganizations().stream()
                 .map(OrganizationResponse::new)
@@ -47,7 +48,7 @@ public class OrganizationController {
     }
 
     @GetMapping(ID)
-    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'BRANCH_LIST')")
+    @PreAuthorize("@permissionAuthorizationService.hasOrganizationPermission(authentication, #organizationId, 'ORGANIZATION_READ')")
     public ResponseEntity<SuccessResponse<OrganizationResponse>> getOrganizationById(
             @PathVariable("id") UUID organizationId
     ) {
@@ -58,7 +59,7 @@ public class OrganizationController {
     }
 
     @PatchMapping(ID)
-    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'BRANCH_UPDATE')")
+    @PreAuthorize("@permissionAuthorizationService.hasOrganizationPermission(authentication, #organizationId, 'ORGANIZATION_UPDATE')")
     public ResponseEntity<SuccessResponse<OrganizationResponse>> updateOrganization(
             @PathVariable("id") UUID organizationId,
             @Valid @RequestBody UpdateOrganizationRequest request

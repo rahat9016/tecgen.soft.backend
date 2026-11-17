@@ -42,11 +42,11 @@ public class UserController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(
-            "@permissionAuthorizationService.hasPermission(authentication, 'USER_CREATE')"
+            "@permissionAuthorizationService.canCreateUser(authentication, #request.organizationId)"
     )
     @Operation(
             summary = "Create a user",
-            description = "Create a user and assign a platform or branch role."
+            description = "Create a user and assign a platform or organization role."
     )
     public ResponseEntity<SuccessResponse<UserResponse>> createUser(
             @Valid @ModelAttribute CreateUserRequest request,
@@ -61,7 +61,7 @@ public class UserController {
                 callerId,
                 user,
                 request.getRoleId(),
-                request.getBranchId(),
+                request.getOrganizationId(),
                 request.getProfilePicture()
         );
 

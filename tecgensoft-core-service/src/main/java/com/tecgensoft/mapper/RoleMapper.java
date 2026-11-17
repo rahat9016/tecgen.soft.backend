@@ -1,6 +1,6 @@
 package com.tecgensoft.mapper;
 
-import com.tecgensoft.jpa.daos.BranchDao;
+import com.tecgensoft.jpa.daos.OrganizationDao;
 import com.tecgensoft.jpa.daos.PermissionDao;
 import com.tecgensoft.jpa.daos.RoleDao;
 import com.tecgensoft.service.entities.Role;
@@ -18,7 +18,7 @@ public class RoleMapper {
                 .id(roleDao.getId())
                 .description(roleDao.getDescription())
                 .name(roleDao.getName())
-                .branch(BranchMapper.toEntity(roleDao.getBranch()))
+                .organization(roleDao.getOrganization() == null ? null : OrganizationMapper.toEntity(roleDao.getOrganization()))
                 .scope(roleDao.getScope())
                 .isSystem(roleDao.getIsSystem())
                 .isActive(roleDao.getIsActive())
@@ -41,7 +41,7 @@ public class RoleMapper {
     }
     public static RoleDao toDao(
             Role role,
-            BranchDao branch,
+            OrganizationDao organization,
             Set<PermissionDao> permissions
     ) {
 
@@ -51,7 +51,7 @@ public class RoleMapper {
             return null;
         }
 
-        roleDao.setBranch(branch);
+        roleDao.setOrganization(organization);
 
         roleDao.setPermissions(
                 permissions == null

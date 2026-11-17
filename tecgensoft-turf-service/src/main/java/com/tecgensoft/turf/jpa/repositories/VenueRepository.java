@@ -5,8 +5,8 @@ import java.util.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface VenueRepository extends JpaRepository<VenueDao, UUID> {
-  Optional<VenueDao> findByIdAndOrganizationIdAndBranchId(
-      UUID id, UUID organizationId, UUID branchId);
+  Optional<VenueDao> findByIdAndOrganizationId(
+      UUID id, UUID organizationId);
 
-  List<VenueDao> findByOrganizationIdAndBranchId(UUID organizationId, UUID branchId);
+  List<VenueDao> findByOrganizationId(UUID organizationId);
 }

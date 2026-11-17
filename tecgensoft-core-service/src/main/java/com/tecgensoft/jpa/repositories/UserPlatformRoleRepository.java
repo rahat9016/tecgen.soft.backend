@@ -29,7 +29,7 @@ public interface UserPlatformRoleRepository  extends JpaRepository<UserPlatformR
               AND upr.user.isActive = true
               AND role.isActive = true
               AND role.scope = :scope
-              AND role.branch IS NULL
+              AND role.organization IS NULL
               AND permission.name = :permissionCode
             """)
     boolean hasPermission(
@@ -47,7 +47,7 @@ public interface UserPlatformRoleRepository  extends JpaRepository<UserPlatformR
                   AND upr.user.isActive = true
                   AND role.isActive = true
                   AND role.scope = :scope
-                  AND role.branch IS NULL
+                  AND role.organization IS NULL
                 ORDER BY role.name
             """)
     List<String> findEffectiveRoleNames(@Param("userId") UUID userId, @Param("scope") RoleScope scope);
@@ -61,7 +61,7 @@ public interface UserPlatformRoleRepository  extends JpaRepository<UserPlatformR
                   AND upr.user.isActive = true
                   AND role.isActive = true
                   AND role.scope = :scope
-                  AND role.branch IS NULL
+                  AND role.organization IS NULL
                 ORDER BY permission.name
             """)
     List<String> findEffectivePermissionCodes(@Param("userId") UUID userId, @Param("scope") RoleScope scope);

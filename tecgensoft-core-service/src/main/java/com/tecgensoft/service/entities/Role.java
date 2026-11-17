@@ -16,7 +16,7 @@ public record Role(
         Boolean isSystem,
         RoleScope scope,
         Boolean isActive,
-        Branch branch,
+        Organization organization,
         Instant createdAt,
         Instant updatedAt
 ) {}

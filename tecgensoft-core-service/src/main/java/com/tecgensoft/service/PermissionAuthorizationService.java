@@ -2,8 +2,8 @@ package com.tecgensoft.service;
 
 
 import com.tecgensoft.common.policy.PermissionPolicy;
-import com.tecgensoft.jpa.repositories.UserBranchRepository;
-import com.tecgensoft.jpa.repositories.UserBranchRoleRepository;
+import com.tecgensoft.jpa.repositories.UserOrganizationRepository;
+import com.tecgensoft.jpa.repositories.UserOrganizationRoleRepository;
 import com.tecgensoft.jpa.repositories.UserPlatformRoleRepository;
 import com.tecgensoft.service.enums.PermissionCode;
 import com.tecgensoft.service.enums.RoleScope;
@@ -20,8 +20,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PermissionAuthorizationService {
     private final UserPlatformRoleRepository userPlatformRoleRepository;
-    private final UserBranchRepository userBranchRepository;
-    private final UserBranchRoleRepository userBranchRoleRepository;
+    private final UserOrganizationRepository userOrganizationRepository;
+    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
 
     public boolean hasPermission(Authentication authentication, String permissionCode) {
         UUID userId = getAuthenticatedUserId(authentication);
@@ -38,25 +38,48 @@ public class PermissionAuthorizationService {
         return userPlatformRoleRepository.hasPermission(userId, RoleScope.PLATFORM, permissionCode);
     }
 
-
-    public boolean canReadBranch(Authentication authentication, UUID branchId) {
-        return hasBranchPermission(authentication, branchId, "BRANCH_READ");
+    public boolean canCreateUser(Authentication authentication, UUID organizationId) {
+        UUID userId = getAuthenticatedUserId(authentication);
+        return userId != null && (
+                userPlatformRoleRepository.hasPermission(userId, RoleScope.PLATFORM, "USER_CREATE")
+                        || (organizationId != null && hasOrganizationPermission(userId, organizationId, "USER_CREATE"))
+        );
     }
 
-    public boolean hasBranchPermission(Authentication authentication, UUID branchId, String permissionCode) {
+    public boolean canReadPermissions(Authentication authentication) {
+        UUID userId = getAuthenticatedUserId(authentication);
+        return userId != null && (
+                userPlatformRoleRepository.hasPermission(userId, RoleScope.PLATFORM, "PERMISSION_READ")
+                        || userOrganizationRoleRepository.hasAnyOrganizationPermission(
+                                userId, RoleScope.ORGANIZATION, "PERMISSION_READ")
+        );
+    }
+
+    public boolean canReadPlatformPermissions(Authentication authentication) {
+        UUID userId = getAuthenticatedUserId(authentication);
+        return userId != null
+                && userPlatformRoleRepository.hasPermission(userId, RoleScope.PLATFORM, "PERMISSION_READ");
+    }
+
+
+    public boolean canReadOrganization(Authentication authentication, UUID organizationId) {
+        return hasOrganizationPermission(authentication, organizationId, "ORGANIZATION_READ");
+    }
+
+    public boolean hasOrganizationPermission(Authentication authentication, UUID organizationId, String permissionCode) {
         UUID userId = getAuthenticatedUserId(authentication);
 
-        return hasBranchPermission(userId, branchId, permissionCode);
+        return hasOrganizationPermission(userId, organizationId, permissionCode);
     }
 
-    public void requireBranchPermission(UUID userId, UUID branchId, String permissionCode) {
-        if (!hasBranchPermission(userId, branchId, permissionCode)) {
-            throw new AccessDeniedException("Permission denied for this branch");
+    public void requireOrganizationPermission(UUID userId, UUID organizationId, String permissionCode) {
+        if (!hasOrganizationPermission(userId, organizationId, permissionCode)) {
+            throw new AccessDeniedException("Permission denied for this organization");
         }
     }
 
-    private boolean hasBranchPermission(UUID userId, UUID branchId, String permissionCode) {
-        if (userId == null || branchId == null || permissionCode == null) {
+    private boolean hasOrganizationPermission(UUID userId, UUID organizationId, String permissionCode) {
+        if (userId == null || organizationId == null || permissionCode == null) {
             return false;
         }
 
@@ -64,7 +87,7 @@ public class PermissionAuthorizationService {
             return true;
         }
 
-        return PermissionPolicy.isBranchPermission(permissionCode) && userBranchRepository.existsByUser_IdAndBranch_Id(userId, branchId) && userBranchRoleRepository.hasBranchPermission(userId, branchId, RoleScope.BRANCH, permissionCode);
+        return PermissionPolicy.isOrganizationPermission(permissionCode) && userOrganizationRepository.existsByUser_IdAndOrganization_Id(userId, organizationId) && userOrganizationRoleRepository.hasOrganizationPermission(userId, organizationId, RoleScope.ORGANIZATION, permissionCode);
     }
 
     private UUID getAuthenticatedUserId(Authentication authentication) {

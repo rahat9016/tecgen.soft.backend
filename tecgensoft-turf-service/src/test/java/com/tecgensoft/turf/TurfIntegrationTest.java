@@ -59,13 +59,13 @@ class TurfIntegrationTest {
 
   @BeforeEach
   void setup() {
-    context = new TurfService.Context(UUID.randomUUID(), UUID.randomUUID());
+    context = new TurfService.Context(UUID.randomUUID());
     service.createSettings(
         context, new Venue("Venue", "0123", "Address", "Asia/Dhaka", 0, 24, 18, 50, 10, 4, 30, 0));
     service.createCourt(context, courtRequest("First", true));
     court =
         courts
-            .findByOrganizationIdAndBranchId(context.organizationId(), context.branchId())
+            .findByOrganizationId(context.organizationId())
             .getFirst()
             .getId();
   }
@@ -210,7 +210,7 @@ class TurfIntegrationTest {
   @Test
   void crossTenantReadAndMutationDenied() {
     var b = service.adminBooking(context, admin(12));
-    var other = new TurfService.Context(UUID.randomUUID(), context.branchId());
+    var other = new TurfService.Context(UUID.randomUUID());
     assertThrows(Exception.class, () -> service.detail(other, b.id()));
     assertThrows(Exception.class, () -> service.cancel(other, b.id(), "bad", actor));
     assertThrows(

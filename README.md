@@ -20,7 +20,7 @@ Tecgen Soft is a Spring Boot SaaS backend for organizations, users, roles, permi
 
 | Component | Responsibility | Local address |
 | --- | --- | --- |
-| Core service | Authentication, organizations, branches, RBAC, packages, subscriptions, domain verification, internal authorization, file storage | `http://localhost:8080` |
+| Core service | Authentication, organization management, organization-scoped roles and permissions, packages, subscriptions, domain verification, internal authorization, file storage | `http://localhost:8080` |
 | Turf service | Venue settings, courts, availability, holds, bookings, payments/refunds, blocks, website content, reports | `http://localhost:8081` |
 | Core PostgreSQL | Core-owned data | `localhost:5433`, database `tecgensoft_core` |
 | Turf PostgreSQL | Turf-owned data | `localhost:5434`, database `tecgensoft_turf` |
@@ -126,8 +126,8 @@ These variables are defined in [`.env.example`](.env.example) and consumed by [c
 | `INTERNAL_SERVICE_KEY` | Shared key for core/turf internal calls; keep separate from the JWT secret |
 | `MINIO_ROOT_USER` | MinIO username; template uses `tecgensoft-local` |
 | `MINIO_ROOT_PASSWORD` | MinIO password and core storage credential |
-| `BRANCH_ADMIN_EMAIL_DOMAIN` | Generated legacy branch-admin email domain; template uses `legacy.local` |
-| `BRANCH_ADMIN_COMMON_PASSWORD` | Legacy branch-admin initial/activation password |
+| `ORGANIZATION_ADMIN_EMAIL_DOMAIN` | Generated organization-admin email domain; template uses `legacy.local` |
+| `ORGANIZATION_ADMIN_COMMON_PASSWORD` | Organization-admin initial/activation password |
 | `SUPER_ADMIN_BOOTSTRAP_ENABLED` | Enables bootstrap account creation; template `true`, application/Compose fallback `false` |
 | `SUPER_ADMIN_FIRST_NAME` | Bootstrap administrator first name |
 | `SUPER_ADMIN_LAST_NAME` | Bootstrap administrator last name |
@@ -174,13 +174,13 @@ A package contains `code`, `displayName`, `product`, `description`, three-letter
 | `REFUND_MANAGEMENT` | Refund recording |
 | `VENUE_SETTINGS` | Venue settings and public venue information |
 | `WEBSITE_CONTENT` | Hero, about, gallery, service content |
-| `BASIC_REPORTS` | Branch reports |
+| `BASIC_REPORTS` | Organization reports |
 
-Supported limit keys are `MAX_BRANCHES` and `MAX_COURTS`, with nonnegative integer values. Branch creation checks `MAX_BRANCHES`; court creation checks `MAX_COURTS`. Include the limits your package needs; branch creation treats a missing branch limit as zero.
+Supported limit keys include `MAX_COURTS`, with nonnegative integer values. Turf data and permissions are scoped directly to an organization.
 
 Subscriptions accept `ACTIVE`, `SUSPENDED`, or `CANCELLED`, a `MONTHLY` or `YEARLY` billing period, `startsAt`, `endsAt`, `packageId`, and `agreedPrice`. Dates use ISO-8601 instants. Entitlements account for organization activity, subscription status, and the subscription time window; responses can indicate `NOT_STARTED`, `EXPIRED`, or `INACTIVE`. Replacing an active subscription marks the previous active record `REPLACED` internally.
 
-Feature entitlement and user permission are separate requirements. Buying a feature does not automatically grant every user permission to administer it. Platform super administrators manage SaaS provisioning; organization/branch role assignments control tenant operations.
+Feature entitlement and user permission are separate requirements. Buying a feature does not automatically grant every user permission to administer it. Platform super administrators manage SaaS provisioning; organization role assignments control tenant operations.
 
 ## Tenant onboarding
 
@@ -189,8 +189,8 @@ Feature entitlement and user permission are separate requirements. Buying a feat
 3. As super administrator, create an organization with `name` and `adminUserId`.
 4. Create a `TURF` package with the required features and limits, then assign a dated active subscription to the organization.
 5. Add a tenant domain. Publish the returned `challenge` as a DNS TXT record at `_tecgen-verification.<hostname>`, then call its verification endpoint.
-6. Create an organization branch and configure role permissions as needed.
-7. As an authorized tenant user, send the verified hostname in `X-Frontend-Host` to turf. Create venue settings and courts, then publish website content.
+6. Configure organization roles and permissions as needed.
+7. As an authorized organization user, send the verified hostname in `X-Frontend-Host` to turf. Create venue settings and courts, then publish website content.
 8. Public clients can browse availability, create a hold, and check out using the hold ID and secret. Submit a payment reference for administrator verification; administrators record verified payments and any refunds.
 
 A hosts-file entry does not satisfy DNS TXT verification. The smoke script bypasses DNS only by modifying its disposable test fixture; that is not the normal onboarding flow.
@@ -208,7 +208,7 @@ Paths below are relative to `/api/v1`. Protected calls use `Authorization: Beare
 | POST | `/auth/signup` | Register user; public |
 | POST | `/auth/login` | Obtain access and refresh tokens; public |
 | POST | `/auth/refresh-token` | Exchange `refreshToken` for an access token; public |
-| POST | `/auth/activate-branch-admin` | Activate legacy admin with `email`, `oldPassword`, `newPassword`; public |
+| POST | `/auth/activate-organization-admin` | Activate organization admin with `email`, `oldPassword`, `newPassword`; public |
 | GET | `/users/me` | Current user |
 | GET | `/users`, `/users/{id}` | List/read users |
 | GET | `/organizations/me` | Current user's organizations |
@@ -219,8 +219,10 @@ Paths below are relative to `/api/v1`. Protected calls use `Authorization: Beare
 | POST | `/system/roles/{id}/permissions` | Assign role permissions |
 | POST | `/system/users/{userId}/roles` | Assign user platform role |
 | DELETE | `/system/users/{userId}/roles/{roleId}` | Remove role assignment |
-| POST, GET | `/branches` | Legacy branch creation/listing; creation uses multipart form data |
-| GET, PATCH | `/branches/{id}` | Read/update legacy branch; updates use multipart form data |
+| POST, GET | `/organizations` | Create/list organizations |
+| GET, PATCH | `/organizations/{id}` | Read/update an organization |
+| POST, GET | `/organizations/{organizationId}/roles` | Create/list organization roles |
+| POST | `/organizations/{organizationId}/roles/{roleId}/permissions` | Add permissions to an organization role |
 
 Legacy list APIs generally use one-based `page` and `limit` (defaults `1` and `20`). SaaS lists use zero-based `page`; turf booking lists also default to `page=0`.
 
@@ -239,7 +241,6 @@ All paths below are relative to `/api/v1/system/saas` and require a platform sup
 | GET | `/organizations/{id}/entitlements` | Inspect TURF entitlements |
 | POST | `/organizations/{id}/domains` | Register hostname and generate challenge |
 | POST | `/organizations/{id}/domains/{domainId}/verify` | Verify DNS TXT challenge |
-| POST | `/organizations/{id}/branches` | Create organization-owned branch |
 | PATCH | `/organizations/{id}/role-permissions` | Set organization role permission codes |
 
 ### Internal core APIs
@@ -249,12 +250,12 @@ Require `X-Service-Key: <INTERNAL_SERVICE_KEY>`. These endpoints support service
 | Method | Path | Body / query |
 | --- | --- | --- |
 | POST | `/internal/v1/tenants/resolve` | `{"hostname":"booking.example.com"}` |
-| POST | `/internal/v1/access/check` | `organizationId`, `branchId`, `product`, `permissionCode`; also requires user Bearer token |
+| POST | `/internal/v1/access/check` | `organizationId`, `product`, `permissionCode`; also requires user Bearer token |
 | GET | `/internal/v1/organizations/{id}/entitlements` | `?product=TURF` |
 
 ### Turf administrative APIs
 
-Prefix: `/api/v1/turf/branches/{branch}`. Every call requires a user Bearer token and `X-Frontend-Host: <verified tenant hostname>`. Core checks the relevant permission and subscription feature.
+Prefix: `/api/v1/turf/organizations/{organizationId}`. Every call requires a user Bearer token and `X-Frontend-Host: <verified tenant hostname>`. Core checks the relevant organization permission and subscription feature.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -277,7 +278,7 @@ Payment bodies contain `amount`, `method` (`BKASH`, `NAGAD`, `CARD`, `CASH`), `k
 
 ### Turf public APIs
 
-Prefix: `/api/v1/public/turf/branches/{branch}`. These calls require `X-Frontend-Host` and an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
+Prefix: `/api/v1/public/turf/organizations/{organizationId}`. These calls require `X-Frontend-Host` and an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -317,19 +318,19 @@ curl -sS http://localhost:8080/api/v1/system/saas/packages \
     "currency":"BDT",
     "price":1000,
     "features":["COURT_MANAGEMENT","BOOKING_MANAGEMENT","ONLINE_BOOKING","PAYMENT_MANAGEMENT","REFUND_MANAGEMENT","VENUE_SETTINGS","WEBSITE_CONTENT","BASIC_REPORTS"],
-    "limits":{"MAX_BRANCHES":1,"MAX_COURTS":3},
+    "limits":{"MAX_COURTS":3},
     "active":true,
     "availableForSale":true
   }'
 ```
 
-After tenant onboarding, query public availability using actual branch/court IDs and a date inside the venue booking window:
+After tenant onboarding, query public availability using the organization and court IDs and a date inside the venue booking window:
 
 ```sh
-export BRANCH_ID='YOUR_BRANCH_UUID'
+export ORGANIZATION_ID='YOUR_ORGANIZATION_UUID'
 export COURT_ID='YOUR_COURT_UUID'
 export BOOKING_DATE='YYYY-MM-DD'
-curl -sS "http://localhost:8081/api/v1/public/turf/branches/$BRANCH_ID/availability?courtId=$COURT_ID&date=$BOOKING_DATE&durationHours=1" \
+curl -sS "http://localhost:8081/api/v1/public/turf/organizations/$ORGANIZATION_ID/availability?courtId=$COURT_ID&date=$BOOKING_DATE&durationHours=1" \
   -H 'X-Frontend-Host: booking.example.com'
 ```
 
@@ -373,8 +374,8 @@ This is a repository-based status and proposed continuation plan, not a committe
 
 | Phase | Status | Scope / next work |
 | --- | --- | --- |
-| 1. Identity and access | Implemented | Signup/login/refresh, users, roles, permissions, legacy branch-admin activation, super-admin bootstrap |
-| 2. SaaS foundation | Implemented | Organizations and ownership, versioned packages, subscriptions, entitlements, domain verification, branch provisioning |
+| 1. Identity and access | Implemented | Signup/login/refresh, users, organization-scoped roles and permissions, organization-admin activation, super-admin bootstrap |
+| 2. SaaS foundation | Implemented | Organizations, versioned packages, subscriptions, entitlements, domain verification |
 | 3. Turf operations | Implemented | Venue settings, courts, availability, holds, public/admin bookings, blocks, payment/refund ledger, content, reports |
 | 4. Local development and verification | Implemented | Compose, independent PostgreSQL databases, MinIO, Flyway, integration tests, HTTP smoke workflow, CI |
 | 5. Product integration | Proposed | Build/connect frontend screens, agree commercial package tiers and prices, complete real-domain onboarding |
@@ -389,7 +390,7 @@ This is a repository-based status and proposed continuation plan, not a committe
 - **Unsupported Java release:** both modules target Java 26. Check `java -version`, `JAVA_HOME`, and `mvn -version`.
 - **Turf cannot reach core:** host runs need `CORE_URL=http://localhost:8080`; containers use the Compose service hostname. Match `INTERNAL_SERVICE_KEY` across both services.
 - **Tenant resolution fails:** use a registered, DNS-verified hostname in `X-Frontend-Host`, and confirm organization/subscription activity.
-- **403 on tenant operations:** check the user's organization/branch role, permission code, enabled package feature, subscription dates, and limits.
+- **403 on tenant operations:** check the user's organization role, permission code, enabled package feature, subscription dates, and limits.
 - **409 when reserving a slot:** an overlapping hold, booking, or block may already own it; refresh availability.
 
 Licensed under [Apache License 2.0](LICENSE).

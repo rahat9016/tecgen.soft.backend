@@ -1,6 +1,6 @@
 package com.tecgensoft.http.dtos.responses;
 
-import com.tecgensoft.service.entities.BranchAdminCredentials;
+import com.tecgensoft.service.entities.OrganizationAdminCredentials;
 
 import java.util.UUID;
 
@@ -12,7 +12,7 @@ public record AdminResponse(
         String status
 ) {
 
-    public AdminResponse(BranchAdminCredentials admin) {
+    public AdminResponse(OrganizationAdminCredentials admin) {
         this(
                 admin.userId(),
                 admin.roleId(),

@@ -2,9 +2,9 @@ server:
   port: ${PORT:8080}
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tecgensoft_db}
-    username: ${DATABASE_USERNAME:tecgensoft}
-    password: ${DATABASE_PASSWORD:${CORE_DB_PASSWORD:tecgensoft_local}}
+    url: jdbc:postgresql://localhost:5433/tecgensoft_db
+    username: postgres
+    password: 9016
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect

@@ -31,12 +31,12 @@ public enum PermissionCode {
     USER_DELETE("USER_DELETE", "USER", "Delete users"),
     USER_ROLE_MANAGE("USER_ROLE_MANAGE", "USER", "Manage user role assignments"),
 
-    // BRANCH MANAGEMENT
-    BRANCH_CREATE("BRANCH_CREATE", "BRANCH", "Create branches"),
-    BRANCH_READ("BRANCH_READ", "BRANCH", "View branches"),
-    BRANCH_UPDATE("BRANCH_UPDATE", "BRANCH", "Update branches"),
-    BRANCH_DELETE("BRANCH_DELETE", "BRANCH", "Delete branches"),
-    BRANCH_LIST("BRANCH_LIST", "BRANCH", "List branches"),
+    // ORGANIZATION MANAGEMENT
+    ORGANIZATION_CREATE("ORGANIZATION_CREATE", "ORGANIZATION", "Create organizations"),
+    ORGANIZATION_READ("ORGANIZATION_READ", "ORGANIZATION", "View organizations"),
+    ORGANIZATION_UPDATE("ORGANIZATION_UPDATE", "ORGANIZATION", "Update organizations"),
+    ORGANIZATION_DELETE("ORGANIZATION_DELETE", "ORGANIZATION", "Delete organizations"),
+    ORGANIZATION_LIST("ORGANIZATION_LIST", "ORGANIZATION", "List organizations"),
 
     // PRODUCT MANAGEMENT
     PRODUCT_CREATE("PRODUCT_CREATE", "PRODUCT", "Create products"),
@@ -99,11 +99,11 @@ public enum PermissionCode {
     }
 
 
-    public static List<String> getDefaultBranchPermissions() {
+    public static List<String> getDefaultOrganizationPermissions() {
 
         return List.of(
-                // BRANCH MANAGEMENT
-                BRANCH_READ.getCode(), BRANCH_UPDATE.getCode(),
+                // ORGANIZATION MANAGEMENT
+                ORGANIZATION_READ.getCode(), ORGANIZATION_UPDATE.getCode(),
 
                 // USER MANAGEMENT
                 USER_CREATE.getCode(), USER_READ.getCode(), USER_UPDATE.getCode(), USER_ROLE_MANAGE.getCode(),
@@ -122,7 +122,7 @@ public enum PermissionCode {
     }
 
     public static List<String> getPlatformPermissions() {
-        return List.of(BRANCH_CREATE.getCode(), BRANCH_READ.getCode(), BRANCH_UPDATE.getCode(), BRANCH_DELETE.getCode(), BRANCH_LIST.getCode(),
+        return List.of(ORGANIZATION_CREATE.getCode(), ORGANIZATION_READ.getCode(), ORGANIZATION_UPDATE.getCode(), ORGANIZATION_DELETE.getCode(), ORGANIZATION_LIST.getCode(),
 
                 ROLE_CREATE.getCode(), ROLE_READ.getCode(), ROLE_UPDATE.getCode(), ROLE_DELETE.getCode(),
 

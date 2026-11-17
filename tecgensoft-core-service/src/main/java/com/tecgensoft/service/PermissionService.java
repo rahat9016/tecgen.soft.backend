@@ -2,14 +2,14 @@ package com.tecgensoft.service;
 
 import com.tecgensoft.common.policy.PermissionPolicy;
 import com.tecgensoft.common.utils.Util;
-import com.tecgensoft.http.dtos.responses.BranchPermissionResponse;
+import com.tecgensoft.http.dtos.responses.OrganizationPermissionResponse;
 import com.tecgensoft.http.dtos.responses.ModulePermissionTreeResponse;
 import com.tecgensoft.http.dtos.responses.MyPermissionsResponse;
 import com.tecgensoft.http.dtos.responses.PermissionTreeItemResponse;
-import com.tecgensoft.jpa.daos.BranchDao;
+import com.tecgensoft.jpa.daos.OrganizationDao;
 import com.tecgensoft.jpa.daos.PermissionDao;
 import com.tecgensoft.jpa.repositories.PermissionRepository;
-import com.tecgensoft.jpa.repositories.UserBranchRoleRepository;
+import com.tecgensoft.jpa.repositories.UserOrganizationRoleRepository;
 import com.tecgensoft.jpa.repositories.UserPlatformRoleRepository;
 import com.tecgensoft.jpa.repositories.UserRepository;
 import com.tecgensoft.mapper.PermissionMapper;
@@ -39,13 +39,14 @@ public class PermissionService {
 
     private final UserRepository userRepository;
     private final UserPlatformRoleRepository userPlatformRoleRepository;
-    private final UserBranchRoleRepository userBranchRoleRepository;
+    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
     private final PermissionRepository permissionRepository;
 
     @Transactional(readOnly = true)
     public Page<Permission> getAllPermissionsByFilter(
             FindAllPermissionsFilter filter,
-            Pageable pageable
+            Pageable pageable,
+            boolean organizationOnly
     ) {
         String searchPattern = Util.toSearchPattern(filter.getSearch());
 
@@ -57,6 +58,8 @@ public class PermissionService {
                 .filter(permission -> module == null
                         || module.isBlank()
                         || permission.getModule().equals(module))
+                .filter(permission -> !organizationOnly
+                        || PermissionPolicy.isOrganizationPermission(permission.getCode()))
                 .map(PermissionCode::getCode)
                 .toList();
 
@@ -76,19 +79,23 @@ public class PermissionService {
     }
 
     @Transactional(readOnly = true)
-    public List<PermissionGroup> getPermissionTree() {
+    public List<PermissionGroup> getPermissionTree(boolean organizationOnly) {
         List<Permission> permissions = permissionRepository.findAll()
                 .stream()
                 .map(PermissionMapper::toEntity)
+                .filter(permission -> !organizationOnly
+                        || PermissionPolicy.isOrganizationPermission(permission.code().getCode()))
                 .toList();
 
         return groupPermissions(permissions);
     }
 
     @Transactional(readOnly = true)
-    public Permission getPermissionById(UUID id) {
+    public Permission getPermissionById(UUID id, boolean organizationOnly) {
         return permissionRepository.findById(id)
                 .map(PermissionMapper::toEntity)
+                .filter(permission -> !organizationOnly
+                        || PermissionPolicy.isOrganizationPermission(permission.code().getCode()))
                 .orElseThrow(() -> new PermissionNotFoundException(id.toString()));
     }
 
@@ -119,57 +126,57 @@ public class PermissionService {
             );
         }
 
-        List<BranchDao> branches =
-                userBranchRoleRepository.findAuthorizedBranches(
+        List<OrganizationDao> organizations =
+                userOrganizationRoleRepository.findAuthorizedOrganizations(
                         userId,
-                        RoleScope.BRANCH
+                        RoleScope.ORGANIZATION
                 );
 
-        if (branches.isEmpty()) {
+        if (organizations.isEmpty()) {
             throw new AccessDeniedException("No active role assignment found");
         }
 
-        List<BranchPermissionResponse> branchPermissions = branches.stream()
-                .map(branch -> getBranchPermissions(userId, branch))
+        List<OrganizationPermissionResponse> organizationPermissions = organizations.stream()
+                .map(organization -> getOrganizationPermissions(userId, organization))
                 .toList();
 
-        if (branchPermissions.size() == 1) {
-            return MyPermissionsResponse.branch(
+        if (organizationPermissions.size() == 1) {
+            return MyPermissionsResponse.organization(
                     userId,
-                    branchPermissions.getFirst()
+                    organizationPermissions.getFirst()
             );
         }
 
-        return MyPermissionsResponse.multipleBranches(
+        return MyPermissionsResponse.multipleOrganizations(
                 userId,
-                branchPermissions
+                organizationPermissions
         );
     }
 
-    private BranchPermissionResponse getBranchPermissions(
+    private OrganizationPermissionResponse getOrganizationPermissions(
             UUID userId,
-            BranchDao branch
+            OrganizationDao organization
     ) {
-        UUID branchId = branch.getId();
+        UUID organizationId = organization.getId();
 
-        List<String> roles = userBranchRoleRepository
-                .findRoleNames(userId, branchId, RoleScope.BRANCH)
+        List<String> roles = userOrganizationRoleRepository
+                .findRoleNames(userId, organizationId, RoleScope.ORGANIZATION)
                 .stream()
                 .distinct()
                 .sorted()
                 .toList();
 
-        List<String> permissionCodes = userBranchRoleRepository
-                .findEffectivePermissionCodes(userId, branchId, RoleScope.BRANCH)
+        List<String> permissionCodes = userOrganizationRoleRepository
+                .findEffectivePermissionCodes(userId, organizationId, RoleScope.ORGANIZATION)
                 .stream()
-                .filter(PermissionPolicy::isBranchPermission)
+                .filter(PermissionPolicy::isOrganizationPermission)
                 .distinct()
                 .toList();
 
-        return new BranchPermissionResponse(
-                branchId,
-                branch.getCode(),
-                branch.getName(),
+        return new OrganizationPermissionResponse(
+                organizationId,
+                organization.getCode(),
+                organization.getName(),
                 roles,
                 toModulePermissionTree(permissionCodes)
         );

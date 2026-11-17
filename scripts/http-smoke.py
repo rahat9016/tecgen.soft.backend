@@ -67,7 +67,7 @@ def run():
                        DATABASE_PASSWORD=os.environ.get('TEST_DATABASE_PASSWORD', ''), PORT=str(port),
                        JWT_SECRET='smoke-only-jwt-secret-at-least-thirty-two-characters',
                        INTERNAL_SERVICE_KEY=SERVICE_KEY, CORE_URL=CORE, STORAGE_TYPE='s3',
-                       BRANCH_ADMIN_EMAIL_DOMAIN='legacy.invalid', BRANCH_ADMIN_COMMON_PASSWORD=password,
+                       ORGANIZATION_ADMIN_EMAIL_DOMAIN='legacy.invalid', ORGANIZATION_ADMIN_COMMON_PASSWORD=password,
                        SUPER_ADMIN_BOOTSTRAP_ENABLED='true', SUPER_ADMIN_FIRST_NAME='Smoke',
                        SUPER_ADMIN_LAST_NAME='Super', SUPER_ADMIN_EMAIL=email, SUPER_ADMIN_PASSWORD=password)
             jar = ROOT / f'tecgensoft-{svc}-service/target/tecgensoft-{svc}-service-0.0.1-SNAPSHOT.jar'
@@ -102,7 +102,7 @@ def run():
             'code': 'SMOKE_' + tag, 'displayName': 'Smoke Basic', 'product': 'TURF', 'description': 'Disposable test',
             'currency': 'BDT', 'price': 1000, 'features': ['COURT_MANAGEMENT', 'BOOKING_MANAGEMENT', 'ONLINE_BOOKING',
             'PAYMENT_MANAGEMENT', 'REFUND_MANAGEMENT', 'VENUE_SETTINGS', 'WEBSITE_CONTENT', 'BASIC_REPORTS'],
-            'limits': {'MAX_COURTS': 1, 'MAX_BRANCHES': 1}, 'active': True, 'availableForSale': True},
+            'limits': {'MAX_COURTS': 1}, 'active': True, 'availableForSale': True},
             token=super_token, expected=201)
         now = dt.datetime.now(dt.timezone.utc)
         request(CORE, system + f'/organizations/{org_id}/subscriptions', {
@@ -114,10 +114,8 @@ def run():
         host = domain['hostname']
         # Test fixture only: .test cannot publish a real DNS TXT challenge.
         fixture("UPDATE tenant_domains SET verified_at=now() WHERE id='" + domain['id'] + "'")
-        branch = request(CORE, system + f'/organizations/{org_id}/branches', {
-            'name': 'Smoke branch ' + tag, 'address': 'Test address', 'phone': '0123'}, token=super_token, expected=201)
-        private = '/api/v1/turf/branches/' + branch['id']
-        public = '/api/v1/public/turf/branches/' + branch['id']
+        private = '/api/v1/turf/organizations/' + org_id
+        public = '/api/v1/public/turf/organizations/' + org_id
         for _ in range(60):
             try:
                 request(TURF, public + '/courts', host=host)

@@ -16,7 +16,7 @@ public class CourtDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
-  private UUID branchId;
+
   private String name;
   private String sport;
   private String surface;

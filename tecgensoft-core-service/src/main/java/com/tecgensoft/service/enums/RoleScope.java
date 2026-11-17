@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 @Getter
 public enum RoleScope {
     PLATFORM("Platform"),
-    BRANCH("Branch");
+    ORGANIZATION("Organization");
 
     private final String code;
 

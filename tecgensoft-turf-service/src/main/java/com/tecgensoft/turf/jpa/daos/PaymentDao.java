@@ -16,7 +16,7 @@ public class PaymentDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
-  private UUID branchId;
+
   private UUID bookingId;
   private BigDecimal amount;
   private String method;

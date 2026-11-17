@@ -10,7 +10,7 @@ public final class TurfModels {
       Instant createdAt,
       Instant updatedAt,
       UUID organizationId,
-      UUID branchId,
+
       String name,
       String phone,
       String address,
@@ -29,7 +29,7 @@ public final class TurfModels {
       Instant createdAt,
       Instant updatedAt,
       UUID organizationId,
-      UUID branchId,
+
       UUID courtId,
       Instant startAt,
       Instant endAt,
@@ -43,7 +43,7 @@ public final class TurfModels {
       Instant createdAt,
       Instant updatedAt,
       UUID organizationId,
-      UUID branchId,
+
       UUID courtId,
       UUID reservationId,
       java.time.LocalDate localDate,
@@ -67,7 +67,7 @@ public final class TurfModels {
       Instant createdAt,
       Instant updatedAt,
       UUID organizationId,
-      UUID branchId,
+
       UUID bookingId,
       BigDecimal amount,
       String method,
@@ -81,7 +81,7 @@ public final class TurfModels {
       Instant createdAt,
       Instant updatedAt,
       UUID organizationId,
-      UUID branchId,
+
       String kind,
       String title,
       String body,

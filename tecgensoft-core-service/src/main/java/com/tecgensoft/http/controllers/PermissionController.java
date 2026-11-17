@@ -2,6 +2,7 @@ package com.tecgensoft.http.controllers;
 
 import com.tecgensoft.http.dtos.responses.*;
 import com.tecgensoft.service.PermissionService;
+import com.tecgensoft.service.PermissionAuthorizationService;
 import com.tecgensoft.service.entities.Permission;
 import com.tecgensoft.service.filters.FindAllPermissionsFilter;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,11 +34,12 @@ import static com.tecgensoft.common.utils.Constants.*;
 @AllArgsConstructor
 public class PermissionController {
     private final PermissionService permissionService;
+    private final PermissionAuthorizationService permissionAuthorizationService;
 
 
     @GetMapping
     @PreAuthorize(
-            "@permissionAuthorizationService.hasPermission(authentication, 'PERMISSION_READ')"
+            "@permissionAuthorizationService.canReadPermissions(authentication)"
     )
     @Operation(
             summary = "Get all permissions",
@@ -75,7 +77,8 @@ public class PermissionController {
             @RequestParam(defaultValue = "20")
             @Min(1)
             @Max(100)
-            int size
+            int size,
+            Authentication authentication
     ) {
 
         Pageable pageable = PageRequest.of(
@@ -87,7 +90,8 @@ public class PermissionController {
         Page<Permission> permissions =
                 permissionService.getAllPermissionsByFilter(
                         filter,
-                        pageable
+                        pageable,
+                        !permissionAuthorizationService.canReadPlatformPermissions(authentication)
                 );
 
         List<PermissionResponse> response = permissions
@@ -107,14 +111,16 @@ public class PermissionController {
 
 
     @PreAuthorize(
-            "@permissionAuthorizationService.hasPermission(authentication, 'PERMISSION_READ')"
+            "@permissionAuthorizationService.canReadPermissions(authentication)"
     )
     @GetMapping("/tree")
     public ResponseEntity<SuccessResponse<List<ModulePermissionTreeResponse>>>
-    getPermissionTree() {
+    getPermissionTree(Authentication authentication) {
 
         List<ModulePermissionTreeResponse> response =
-                permissionService.getPermissionTree()
+                permissionService.getPermissionTree(
+                        !permissionAuthorizationService.canReadPlatformPermissions(authentication)
+                )
                         .stream()
                         .map(group -> new ModulePermissionTreeResponse(
                                 group.module(),
@@ -134,14 +140,18 @@ public class PermissionController {
     }
 
     @PreAuthorize(
-            "@permissionAuthorizationService.hasPermission(authentication, 'PERMISSION_READ')"
+            "@permissionAuthorizationService.canReadPermissions(authentication)"
     )
     @GetMapping(ID)
     public ResponseEntity<SuccessResponse<PermissionResponse>> getPermissionById(
-            @PathVariable("id") UUID id
+            @PathVariable("id") UUID id,
+            Authentication authentication
     ) {
         Permission permission =
-                permissionService.getPermissionById(id);
+                permissionService.getPermissionById(
+                        id,
+                        !permissionAuthorizationService.canReadPlatformPermissions(authentication)
+                );
 
         return ResponseEntity.ok(
                 SuccessResponse.of(
@@ -158,8 +168,8 @@ public class PermissionController {
             description = """
                     Retrieves the authenticated user's permissions
                     based on database role assignments.
-                    Platform roles take priority over Branch roles.
-                    No scope or branch ID is required.
+                    Platform roles take priority over Organization roles.
+                    No scope or organization ID is required.
                     """,
             responses = {
                     @ApiResponse(

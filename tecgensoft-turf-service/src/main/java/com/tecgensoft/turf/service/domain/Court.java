@@ -6,7 +6,7 @@ import java.util.*;
 public record Court(
     UUID id,
     UUID organizationId,
-    UUID branchId,
+
     String name,
     String sport,
     String surface,

@@ -6,6 +6,8 @@ import java.util.UUID;
 public record Organization(
         UUID id,
         String name,
+        String code,
+        String logoUrl,
         String address,
         String phone,
         String email,

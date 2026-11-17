@@ -32,7 +32,7 @@ public class TurfService {
   private final ContentRepository contents;
   private final CoreClient core;
 
-  public record Context(UUID organizationId, UUID branchId) {}
+  public record Context(UUID organizationId) {}
 
   private ResponseStatusException bad(String message) {
     return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
@@ -53,7 +53,7 @@ public class TurfService {
   }
 
   public VenueDao venue(Context c) {
-    return venues.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+    return venues.findByOrganizationId(c.organizationId()).stream()
         .findFirst()
         .orElseThrow(this::missing);
   }
@@ -75,13 +75,13 @@ public class TurfService {
     }
     organizationLock(c.organizationId());
     var existing =
-        venues.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+        venues.findByOrganizationId(c.organizationId()).stream()
             .findFirst();
     if (create && existing.isPresent()) throw conflict("Venue settings already exist");
     if (!create && existing.isEmpty()) throw missing();
     var d = existing.orElseGet(VenueDao::new);
     d.setOrganizationId(c.organizationId());
-    d.setBranchId(c.branchId());
+
     d.setName(r.name());
     d.setPhone(r.phone());
     d.setAddress(r.address());
@@ -113,12 +113,12 @@ public class TurfService {
     venue(c);
     if (r.active()) enforceCourtLimit(c);
     return CourtMapper.toEntity(
-        courts.saveAndFlush(CourtMapper.toDao(r, c.organizationId(), c.branchId())));
+        courts.saveAndFlush(CourtMapper.toDao(r, c.organizationId())));
   }
 
   public CourtDao court(Context c, UUID id) {
     return courts
-        .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+        .findByIdAndOrganizationId(id, c.organizationId())
         .orElseThrow(this::missing);
   }
 
@@ -145,7 +145,7 @@ public class TurfService {
   }
 
   public Object courts(Context c, boolean publicOnly) {
-    return courts.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+    return courts.findByOrganizationId(c.organizationId()).stream()
         .filter(d -> !publicOnly || d.isActive())
         .map(CourtMapper::toEntity)
         .toList();
@@ -241,7 +241,7 @@ public class TurfService {
     if (occupied(court, q)) throw conflict("Slot is unavailable");
     var d = new ReservationDao();
     d.setOrganizationId(c.organizationId());
-    d.setBranchId(c.branchId());
+
     d.setCourtId(court);
     d.setStartAt(q.startAt());
     d.setEndAt(q.endAt());
@@ -291,7 +291,7 @@ public class TurfService {
 
   private ReservationDao reservation(Context c, UUID id) {
     return reservations
-        .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+        .findByIdAndOrganizationId(id, c.organizationId())
         .orElseThrow(this::missing);
   }
 
@@ -363,7 +363,6 @@ public class TurfService {
       String notes) {
     var b = new BookingDao();
     b.setOrganizationId(c.organizationId());
-    b.setBranchId(c.branchId());
     b.setCourtId(r.getCourtId());
     b.setReservationId(r.getId());
     b.setLocalDate(slot.date());
@@ -401,7 +400,7 @@ public class TurfService {
 
   public BookingDao booking(Context c, UUID id) {
     return bookings
-        .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+        .findByIdAndOrganizationId(id, c.organizationId())
         .orElseThrow(this::missing);
   }
 
@@ -414,14 +413,13 @@ public class TurfService {
   }
 
   public Object bookings(Context c, LocalDate from, LocalDate to, int page) {
-    expireBranch(c);
+    expireOrganization(c);
     return em
         .createQuery(
-            "select b from BookingDao b where b.organizationId=:org and b.branchId=:branch and"
+            "select b from BookingDao b where b.organizationId=:org and"
                 + " b.localDate>=:from and b.localDate<=:to order by b.localDate desc,b.id",
             BookingDao.class)
         .setParameter("org", c.organizationId())
-        .setParameter("branch", c.branchId())
         .setParameter("from", from)
         .setParameter("to", to)
         .setFirstResult(Math.max(0, page) * 50)
@@ -439,7 +437,7 @@ public class TurfService {
 
   public Object ledger(Context c, UUID id) {
     booking(c, id);
-    return payments.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+    return payments.findByOrganizationId(c.organizationId()).stream()
         .filter(p -> p.getBookingId().equals(id))
         .map(TurfMapper::toEntity)
         .toList();
@@ -524,7 +522,6 @@ public class TurfService {
       throw bad("Pending booking requires advance payment");
     var p = new PaymentDao();
     p.setOrganizationId(c.organizationId());
-    p.setBranchId(c.branchId());
     p.setBookingId(id);
     p.setAmount(request.amount());
     p.setMethod(request.method());
@@ -562,7 +559,7 @@ public class TurfService {
   }
 
   public Object blocks(Context c) {
-    return reservations.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+    return reservations.findByOrganizationId(c.organizationId()).stream()
         .filter(r -> "BLOCK".equals(r.getKind()))
         .map(
             r ->
@@ -588,10 +585,10 @@ public class TurfService {
         id == null
             ? new ContentDao()
             : contents
-                .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+                .findByIdAndOrganizationId(id, c.organizationId())
                 .orElseThrow(this::missing);
     d.setOrganizationId(c.organizationId());
-    d.setBranchId(c.branchId());
+
     d.setKind(r.kind());
     d.setTitle(r.title());
     d.setBody(r.body());
@@ -602,7 +599,7 @@ public class TurfService {
   }
 
   public Object contents(Context c, boolean publicOnly) {
-    return contents.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+    return contents.findByOrganizationId(c.organizationId()).stream()
         .filter(x -> !publicOnly || x.isActive())
         .sorted(Comparator.comparingInt(ContentDao::getSortOrder))
         .map(TurfMapper::toEntity)
@@ -611,7 +608,7 @@ public class TurfService {
 
   public String contentKind(Context c, UUID id) {
     return contents
-        .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+        .findByIdAndOrganizationId(id, c.organizationId())
         .orElseThrow(this::missing)
         .getKind();
   }
@@ -619,7 +616,7 @@ public class TurfService {
   public void deleteContent(Context c, UUID id) {
     var d =
         contents
-            .findByIdAndOrganizationIdAndBranchId(id, c.organizationId(), c.branchId())
+            .findByIdAndOrganizationId(id, c.organizationId())
             .orElseThrow(this::missing);
     contents.delete(d);
   }
@@ -640,8 +637,8 @@ public class TurfService {
         .executeUpdate();
   }
 
-  private void expireBranch(Context c) {
-    courts.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+  private void expireOrganization(Context c) {
+    courts.findByOrganizationId(c.organizationId()).stream()
         .sorted(Comparator.comparing(CourtDao::getId))
         .forEach(d -> lockedCourt(c, d.getId()));
   }
@@ -666,20 +663,19 @@ public class TurfService {
 
   public Object report(Context c, LocalDate from, LocalDate to) {
     if (to.isBefore(from)) throw bad("Report end date must not precede start date");
-    expireBranch(c);
+    expireOrganization(c);
     var bs =
         em.createQuery(
-                "select b from BookingDao b where b.organizationId=:org and b.branchId=:branch and"
+                "select b from BookingDao b where b.organizationId=:org and"
                     + " b.localDate>=:from and b.localDate<=:to",
                 BookingDao.class)
             .setParameter("org", c.organizationId())
-            .setParameter("branch", c.branchId())
             .setParameter("from", from)
             .setParameter("to", to)
             .getResultList();
     Set<UUID> ids = new HashSet<>(bs.stream().map(BookingDao::getId).toList());
     var ledger =
-        payments.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+        payments.findByOrganizationId(c.organizationId()).stream()
             .filter(p -> ids.contains(p.getBookingId()))
             .toList();
     BigDecimal collected =
@@ -702,7 +698,7 @@ public class TurfService {
     capacity *= v.getClosingHour() - v.getOpeningHour();
     final long availableHours = capacity;
     var utilization =
-        courts.findByOrganizationIdAndBranchId(c.organizationId(), c.branchId()).stream()
+        courts.findByOrganizationId(c.organizationId()).stream()
             .map(
                 court -> {
                   long hours =

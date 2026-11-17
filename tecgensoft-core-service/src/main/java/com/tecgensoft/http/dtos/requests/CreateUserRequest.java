@@ -51,14 +51,14 @@ public class CreateUserRequest {
     private Boolean isActive = true;
 
     @Schema(
-            description = "Role ID required for PLATFORM and BRANCH roles",
+            description = "Role ID required for PLATFORM and ORGANIZATION roles",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     @NotNull(message = "Role ID is required")
     private UUID roleId;
 
-    @Schema(description = "Branch ID required for BRANCH roles")
-    private UUID branchId;
+    @Schema(description = "Organization ID required for ORGANIZATION roles")
+    private UUID organizationId;
 
     public User toEntity() {
         return User.builder()

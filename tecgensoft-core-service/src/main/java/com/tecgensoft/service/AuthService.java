@@ -1,10 +1,10 @@
 package com.tecgensoft.service;
 
 import com.tecgensoft.common.utils.Util;
-import com.tecgensoft.http.dtos.requests.ActivateBranchAdminRequest;
+import com.tecgensoft.http.dtos.requests.ActivateOrganizationAdminRequest;
 import com.tecgensoft.http.validations.ValidationUtil;
 import com.tecgensoft.jpa.daos.UserDao;
-import com.tecgensoft.jpa.repositories.UserBranchRoleRepository;
+import com.tecgensoft.jpa.repositories.UserOrganizationRoleRepository;
 import com.tecgensoft.jpa.repositories.UserRepository;
 import com.tecgensoft.mapper.UserMapper;
 import com.tecgensoft.service.entities.User;
@@ -21,10 +21,10 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    private static final String BRANCH_ADMIN_ROLE =
-            "BRANCH_ADMIN";
+    private static final String ORGANIZATION_ADMIN_ROLE =
+            "ORGANIZATION_ADMIN";
     private final UserRepository userRepository;
-    private final UserBranchRoleRepository userBranchRoleRepository;
+    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
     private final UserService userService;
 
     // SIGNUP
@@ -73,8 +73,8 @@ public class AuthService {
         // Implementation for logout
     }
     @Transactional
-    public User activateBranchAdmin(
-            ActivateBranchAdminRequest request
+    public User activateOrganizationAdmin(
+            ActivateOrganizationAdminRequest request
     ) {
 
         // 3.1 NORMALIZE EMAIL
@@ -96,17 +96,17 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        // 3.4 VERIFY BRANCH ADMIN ROLE
+        // 3.4 VERIFY ORGANIZATION ADMIN ROLE
 
-        boolean isBranchAdmin =
-                userBranchRoleRepository
-                        .hasPendingBranchAdminAssignment(
+        boolean isOrganizationAdmin =
+                userOrganizationRoleRepository
+                        .hasPendingOrganizationAdminAssignment(
                                 admin.getId(),
-                                BRANCH_ADMIN_ROLE,
-                                RoleScope.BRANCH
+                                ORGANIZATION_ADMIN_ROLE,
+                                RoleScope.ORGANIZATION
                         );
 
-        if (!isBranchAdmin) {
+        if (!isOrganizationAdmin) {
             throw new InvalidCredentialsException();
         }
 
@@ -124,7 +124,7 @@ public class AuthService {
 
         // 3.6 VALIDATE NEW PASSWORD
 
-        ValidationUtil.validateNewBranchAdminPassword(
+        ValidationUtil.validateNewOrganizationAdminPassword(
                 request.newPassword(),
                 admin.getPassword()
         );
@@ -153,7 +153,7 @@ public class AuthService {
                 userRepository.saveAndFlush(admin);
 
         log.info(
-                "Branch Admin activated: userId={}",
+                "Organization Admin activated: userId={}",
                 savedAdmin.getId()
         );
 

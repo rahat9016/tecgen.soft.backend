@@ -60,7 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(POST, API_BASE + AUTH + "/login").permitAll()
                         .requestMatchers(POST, API_BASE + AUTH + "/signup").permitAll()
                         .requestMatchers(POST, API_BASE + AUTH + "/refresh-token").permitAll()
-                        .requestMatchers(POST, API_BASE + AUTH + "/activate-branch-admin").permitAll()
+                        .requestMatchers(POST, API_BASE + AUTH + "/activate-organization-admin").permitAll()
 
                         // User management endpoints
                         .requestMatchers(GET, API_BASE + USERS + "/me")
@@ -87,13 +87,7 @@ public class SecurityConfig {
 
                         // =========== PERMISSION MANAGEMENT ===========
                         .requestMatchers(GET, API_BASE  + PERMISSIONS, API_BASE + PERMISSIONS + "/**").authenticated()
-
-                        // =========== PUBLIC — read-only branch browsing ===========
-                        .requestMatchers(GET, API_BASE + BRANCHES)
-                        .authenticated().requestMatchers(GET, API_BASE + BRANCHES + "/**")
-                        .authenticated().requestMatchers(POST, API_BASE + BRANCHES + "/**")
-                        .authenticated().requestMatchers(PATCH, API_BASE + BRANCHES + "/**")
-                        .authenticated()
+                        .requestMatchers(POST, API_BASE + ORGANIZATIONS + "/**").authenticated()
                         // =========== PLATFORM — organization management ==========
                         .requestMatchers(GET, API_BASE + ORGANIZATIONS, API_BASE + ORGANIZATIONS + "/**")
                         .authenticated()

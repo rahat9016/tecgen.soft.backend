@@ -19,7 +19,7 @@ import java.util.UUID;
 @Table(name="roles",
         indexes = {
                 @Index(name = "idx_roles_scope", columnList = "scope"),
-                @Index(name = "idx_roles_branch", columnList = "branch_id"),
+                @Index(name = "idx_roles_organization", columnList = "organization_id"),
                 @Index(name = "idx_roles_is_active", columnList = "is_active")
         }
 )
@@ -53,8 +53,8 @@ public class RoleDao {
     private Instant updatedAt;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name= "branch_id")
-    private BranchDao branch;
+    @JoinColumn(name= "organization_id")
+    private OrganizationDao organization;
 
     @Builder.Default
     @ManyToMany(fetch= FetchType.EAGER)

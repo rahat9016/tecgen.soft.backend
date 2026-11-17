@@ -41,7 +41,7 @@ public class CoreClient {
 
   public record Decision(boolean allowed, String reasonCode, UUID userId) {}
 
-  public record Access(UUID organizationId, UUID branchId, String product, String permissionCode) {}
+  public record Access(UUID organizationId, String product, String permissionCode) {}
 
   public Tenant resolve(String host) {
     try {
@@ -61,7 +61,7 @@ public class CoreClient {
     }
   }
 
-  public UUID check(Tenant tenant, UUID branch, String authorization, String permission) {
+  public UUID check(Tenant tenant, String authorization, String permission) {
     if (authorization == null || !authorization.startsWith("Bearer "))
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token required");
     Decision d;
@@ -71,7 +71,7 @@ public class CoreClient {
               .post()
               .uri("/internal/v1/access/check")
               .header("Authorization", authorization)
-              .body(new Access(tenant.organizationId(), branch, "TURF", permission))
+              .body(new Access(tenant.organizationId(), "TURF", permission))
               .retrieve()
               .body(Decision.class);
     } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized e) {

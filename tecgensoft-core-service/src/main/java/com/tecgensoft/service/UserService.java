@@ -37,8 +37,9 @@ public class UserService {
     private final PermissionAuthorizationService permissionAuthorizationService;
     private final FileStorageService fileStorageService;
     private final UserPlatformRoleRepository userPlatformRoleRepository;
-    private final BranchRepository branchRepository;
-    private final UserBranchRoleRepository userBranchRoleRepository;
+    private final OrganizationRepository organizationRepository;
+    private final UserOrganizationRepository userOrganizationRepository;
+    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
     private final RoleService roleService;
 
     @Transactional
@@ -46,17 +47,11 @@ public class UserService {
             UUID callerId,
             User user,
             UUID roleId,
-            UUID branchId,
+            UUID organizationId,
             MultipartFile profilePicture
     ) {
 
-        // 1. CHECK USER CREATE PERMISSION
-        permissionAuthorizationService.requirePlatformPermission(
-                callerId,
-                "USER_CREATE"
-        );
-
-        // 2. NORMALIZE EMAIL
+        // 1. NORMALIZE EMAIL
         String email = user.email()
                 .trim()
                 .toLowerCase(Locale.ROOT);
@@ -85,24 +80,28 @@ public class UserService {
         // 5. VALIDATE ROLE SCOPE
         if (role.getScope() == RoleScope.PLATFORM) {
 
-            if (branchId != null || role.getBranch() != null) {
+            permissionAuthorizationService.requirePlatformPermission(callerId, "USER_CREATE");
+
+            if (organizationId != null || role.getOrganization() != null) {
                 throw new IllegalArgumentException(
-                        "Platform role cannot have a branch"
+                        "Platform role cannot have a organization"
                 );
             }
 
-        } else if (role.getScope() == RoleScope.BRANCH) {
+        } else if (role.getScope() == RoleScope.ORGANIZATION) {
 
-            if (branchId == null) {
+            permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "USER_CREATE");
+
+            if (organizationId == null) {
                 throw new IllegalArgumentException(
-                        "Branch ID is required for branch role"
+                        "Organization ID is required for organization role"
                 );
             }
 
-            if (role.getBranch() == null
-                    || !role.getBranch().getId().equals(branchId)) {
+            if (role.getOrganization() == null
+                    || !role.getOrganization().getId().equals(organizationId)) {
                 throw new IllegalArgumentException(
-                        "Role does not belong to the selected branch"
+                        "Role does not belong to the selected organization"
                 );
             }
 
@@ -124,11 +123,13 @@ public class UserService {
 
         } else {
 
-            permissionAuthorizationService.requireBranchPermission(
+            permissionAuthorizationService.requireOrganizationPermission(
                     callerId,
-                    branchId,
+                    organizationId,
                     "USER_ROLE_ASSIGN"
             );
+
+            requireOrganizationRoleWithinCallerAccess(callerId, organizationId, role);
         }
 
         // 7. GENERATE PASSWORD HASH
@@ -184,27 +185,34 @@ public class UserService {
 
         } else {
 
-            BranchDao branch = branchRepository.findById(branchId)
+            OrganizationDao organization = organizationRepository.findById(organizationId)
                     .orElseThrow(() ->
                             new IllegalArgumentException(
-                                    "Branch not found: " + branchId
+                                    "Organization not found: " + organizationId
                             )
                     );
 
-            if (!branch.isActive()) {
+            if (!organization.isActive()) {
                 throw new PermissionDeniedException(
-                        "Cannot assign a role to an inactive branch"
+                        "Cannot assign a role to an inactive organization"
                 );
             }
 
-            UserBranchRoleDao assignment =
-                    UserBranchRoleDao.builder()
+            if (!userOrganizationRepository.existsByUser_IdAndOrganization_Id(savedUser.getId(), organizationId)) {
+                userOrganizationRepository.saveAndFlush(UserOrganizationDao.builder()
+                        .user(savedUser)
+                        .organization(organization)
+                        .build());
+            }
+
+            UserOrganizationRoleDao assignment =
+                    UserOrganizationRoleDao.builder()
                             .user(savedUser)
-                            .branch(branch)
+                            .organization(organization)
                             .role(role)
                             .build();
 
-            userBranchRoleRepository.saveAndFlush(assignment);
+            userOrganizationRoleRepository.saveAndFlush(assignment);
         }
 
         // 12. RETURN RESPONSE
@@ -281,6 +289,17 @@ public class UserService {
             throw new PermissionDeniedException(
                     "You cannot assign a role beyond your own permissions"
             );
+        }
+    }
+
+    private void requireOrganizationRoleWithinCallerAccess(UUID callerId, UUID organizationId, RoleDao role) {
+        Set<String> callerPermissions = new HashSet<>(userOrganizationRoleRepository.findEffectivePermissionCodes(
+                callerId, organizationId, RoleScope.ORGANIZATION));
+        Set<String> requestedPermissions = role.getPermissions().stream()
+                .map(PermissionDao::getName)
+                .collect(Collectors.toSet());
+        if (!callerPermissions.containsAll(requestedPermissions)) {
+            throw new PermissionDeniedException("You cannot assign an organization role beyond your own permissions");
         }
     }
 

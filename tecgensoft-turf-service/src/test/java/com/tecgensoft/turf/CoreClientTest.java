@@ -45,7 +45,6 @@ class CoreClientTest {
           user,
           client.check(
               new CoreClient.Tenant(org, "TURF", true),
-              UUID.randomUUID(),
               "Bearer original-user-token",
               "TURF_COURT_READ"));
       assertThrows(ResponseStatusException.class, () -> client.resolve("example.test"));
@@ -53,7 +52,7 @@ class CoreClientTest {
           ResponseStatusException.class,
           () ->
               client.check(
-                  new CoreClient.Tenant(org, "TURF", true), null, null, "TURF_COURT_READ"));
+                  new CoreClient.Tenant(org, "TURF", true), null, "TURF_COURT_READ"));
     } finally {
       server.stop(0);
     }

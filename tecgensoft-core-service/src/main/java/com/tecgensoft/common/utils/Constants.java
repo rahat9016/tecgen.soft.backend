@@ -24,15 +24,14 @@ public class Constants {
     public static final String ROLES = "/roles";
 
     public static final String ID = "/{id}";
-    public static final String BRANCH_ID = "/{branchId}";
+    public static final String ORGANIZATION_ID = "/{organizationId}";
     public static final String USER_ID = "/{userId}";
     public static final String ROLE_ID = "/{roleId}";
 
     // PERMISSIONS
     public static final String PERMISSIONS = "/permissions";
 
-    // BRANCHES
-    public static final String BRANCHES = "/branches";
+    // ORGANIZATIONS
     public static final String ORGANIZATIONS = "/organizations";
 
 

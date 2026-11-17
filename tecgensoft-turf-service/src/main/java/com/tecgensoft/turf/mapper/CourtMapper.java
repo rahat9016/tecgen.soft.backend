@@ -12,7 +12,6 @@ public final class CourtMapper {
     return new Court(
         d.getId(),
         d.getOrganizationId(),
-        d.getBranchId(),
         d.getName(),
         d.getSport(),
         d.getSurface(),
@@ -27,10 +26,9 @@ public final class CourtMapper {
         d.isActive());
   }
 
-  public static CourtDao toDao(TurfCommands.Court r, UUID org, UUID branch) {
+  public static CourtDao toDao(TurfCommands.Court r, UUID org) {
     var d = new CourtDao();
     d.setOrganizationId(org);
-    d.setBranchId(branch);
     apply(d, r);
     return d;
   }

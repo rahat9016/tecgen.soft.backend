@@ -15,7 +15,7 @@ public class ReservationDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
-  private UUID branchId;
+
   private UUID courtId;
   private Instant startAt;
   private Instant endAt;

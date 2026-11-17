@@ -5,8 +5,8 @@ import java.util.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentRepository extends JpaRepository<PaymentDao, UUID> {
-  Optional<PaymentDao> findByIdAndOrganizationIdAndBranchId(
-      UUID id, UUID organizationId, UUID branchId);
+  Optional<PaymentDao> findByIdAndOrganizationId(
+      UUID id, UUID organizationId);
 
-  List<PaymentDao> findByOrganizationIdAndBranchId(UUID organizationId, UUID branchId);
+  List<PaymentDao> findByOrganizationId(UUID organizationId);
 }

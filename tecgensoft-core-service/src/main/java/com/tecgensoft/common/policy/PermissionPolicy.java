@@ -21,11 +21,11 @@ public final class PermissionPolicy {
 
     private static final Set<PermissionCode> PLATFORM =
             EnumSet.of(
-                    PermissionCode.BRANCH_CREATE,
-                    PermissionCode.BRANCH_READ,
-                    PermissionCode.BRANCH_LIST,
-                    PermissionCode.BRANCH_UPDATE,
-                    PermissionCode.BRANCH_DELETE,
+                    PermissionCode.ORGANIZATION_CREATE,
+                    PermissionCode.ORGANIZATION_READ,
+                    PermissionCode.ORGANIZATION_LIST,
+                    PermissionCode.ORGANIZATION_UPDATE,
+                    PermissionCode.ORGANIZATION_DELETE,
 
                     PermissionCode.ROLE_CREATE,
                     PermissionCode.ROLE_READ,
@@ -46,14 +46,14 @@ public final class PermissionPolicy {
             );
 
     // ========================================
-    // DEFAULT BRANCH ADMIN PERMISSIONS
+    // DEFAULT ORGANIZATION ADMIN PERMISSIONS
     // ========================================
 
-    private static final Set<PermissionCode> BRANCH =
+    private static final Set<PermissionCode> ORGANIZATION =
             EnumSet.of(
-                    // BRANCH MANAGEMENT
-                    PermissionCode.BRANCH_READ,
-                    PermissionCode.BRANCH_UPDATE,
+                    // ORGANIZATION MANAGEMENT
+                    PermissionCode.ORGANIZATION_READ,
+                    PermissionCode.ORGANIZATION_UPDATE,
 
                     // USER MANAGEMENT
                     PermissionCode.USER_CREATE,
@@ -61,6 +61,8 @@ public final class PermissionPolicy {
                     PermissionCode.USER_UPDATE,
                     PermissionCode.USER_DELETE,
                     PermissionCode.USER_ROLE_MANAGE,
+                    PermissionCode.USER_ROLE_ASSIGN,
+                    PermissionCode.USER_ROLE_REMOVE,
 
                     // ROLE MANAGEMENT
                     PermissionCode.ROLE_CREATE,
@@ -104,11 +106,11 @@ public final class PermissionPolicy {
     }
 
     // ========================================
-    // GET BRANCH PERMISSION CODES
+    // GET ORGANIZATION PERMISSION CODES
     // ========================================
 
-    public static List<String> getBranchPermissions() {
-        return BRANCH.stream()
+    public static List<String> getOrganizationPermissions() {
+        return ORGANIZATION.stream()
                 .map(PermissionCode::getCode)
                 .sorted()
                 .toList();
@@ -126,12 +128,12 @@ public final class PermissionPolicy {
     }
 
     // ========================================
-    // CHECK BRANCH PERMISSION
+    // CHECK ORGANIZATION PERMISSION
     // ========================================
 
-    public static boolean isBranchPermission(String code) {
+    public static boolean isOrganizationPermission(String code) {
         return PermissionCode.isSuppoerted(code)
-                && BRANCH.contains(
+                && ORGANIZATION.contains(
                 PermissionCode.fromCode(code)
         );
     }
