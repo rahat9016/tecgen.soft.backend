@@ -30,3 +30,15 @@ logging:
   level:
     root: INFO
     com.tecgensoft: DEBUG
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Core Public APIs
+        url: /v3/api-docs/public
+      - name: Core Internal APIs
+        url: /v3/api-docs/internal
+      - name: Turf Public APIs
+        url: http://localhost:8081/v3/api-docs/public
+      - name: Turf Organization APIs
+        url: http://localhost:8081/v3/api-docs/internal

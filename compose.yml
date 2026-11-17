@@ -43,7 +43,7 @@ services:
     build: ./tecgensoft-core-service
     ports: ["8080:8080"]
     environment:
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
       SPRING_PROFILES_ACTIVE: local
       FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
       DATABASE_URL: jdbc:postgresql://core-db:5432/tecgensoft_core
@@ -70,8 +70,10 @@ services:
     build: ./tecgensoft-turf-service
     ports: ["8081:8081"]
     environment:
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       PORT: 8081
+      TURF_API_URL: ${TURF_API_URL:-http://localhost:8081}
       DATABASE_URL: jdbc:postgresql://turf-db:5432/tecgensoft_turf
       DATABASE_USERNAME: tecgensoft
       DATABASE_PASSWORD: ${TURF_DB_PASSWORD}

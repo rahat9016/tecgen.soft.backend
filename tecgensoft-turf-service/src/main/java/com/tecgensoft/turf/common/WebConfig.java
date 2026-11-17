@@ -24,7 +24,9 @@ public class WebConfig {
                     org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers("/api/v1/turf/**", "/api/v1/public/turf/**")
+                a.requestMatchers("/swagger-ui/**", "/v3/api-docs/**")
+                    .permitAll()
+                    .requestMatchers("/api/v1/turf/**", "/api/v1/public/turf/**")
                     .permitAll()
                     .anyRequest()
                     .denyAll())

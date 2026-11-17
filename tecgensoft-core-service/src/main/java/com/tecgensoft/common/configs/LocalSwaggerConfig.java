@@ -18,16 +18,17 @@ public class LocalSwaggerConfig {
     @Bean
     public GroupedOpenApi publicApis() {
         return GroupedOpenApi.builder()
-                .group("Public APIs")
+                .group("public")
                 .pathsToMatch(API_BASE + "/**")
+                .pathsToExclude(API_BASE + "/internal/**", "/internal/**")
                 .build();
     }
 
     @Bean
     public GroupedOpenApi internalApis() {
         return GroupedOpenApi.builder()
-                .group("Internal APIs")
-                .pathsToMatch(API_BASE + "/internal/**")
+                .group("internal")
+                .pathsToMatch("/internal/**", API_BASE + "/internal/**")
                 .build();
     }
 
