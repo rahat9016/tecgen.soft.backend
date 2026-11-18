@@ -29,6 +29,9 @@ organization-admin:
 internal:
   service-key: ${INTERNAL_SERVICE_KEY:}
 
+subscriptions:
+  turf-basic-trial-days: ${TURF_BASIC_TRIAL_DAYS:30}
+
 storage:
   type: ${STORAGE_TYPE:minio}
 

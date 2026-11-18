@@ -22,7 +22,7 @@ public class TurfController {
   private record Authorized(TurfService.Context context, UUID actor) {}
 
   private Authorized authorize(HttpServletRequest request, UUID organizationId, String permission) {
-    var tenant = core.resolve(request.getHeader("X-Frontend-Host"));
+    var tenant = core.resolve(request.getServerName());
     if (!tenant.organizationId().equals(organizationId))
       throw new org.springframework.web.server.ResponseStatusException(
           org.springframework.http.HttpStatus.FORBIDDEN, "Organization access denied");
@@ -38,7 +38,7 @@ public class TurfController {
   public Object settings(HttpServletRequest r, @PathVariable UUID organizationId) {
     return ok(
         com.tecgensoft.turf.mapper.TurfMapper.toEntity(
-            service.venue(authorize(r, organizationId, "TURF_SETTINGS_READ").context())));
+            service.venue(authorize(r, organizationId, "TURF_SETTINGS_VIEW").context())));
   }
 
   @PatchMapping("/settings")
@@ -59,14 +59,14 @@ public class TurfController {
 
   @GetMapping("/courts")
   public Object courts(HttpServletRequest r, @PathVariable UUID organizationId) {
-    return ok(service.courts(authorize(r, organizationId, "TURF_COURT_READ").context(), false));
+    return ok(service.courts(authorize(r, organizationId, "TURF_COURT_VIEW").context(), false));
   }
 
   @GetMapping("/courts/{id}")
   public Object court(HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
     return ok(
         com.tecgensoft.turf.mapper.CourtMapper.toEntity(
-            service.court(authorize(r, organizationId, "TURF_COURT_READ").context(), id)));
+            service.court(authorize(r, organizationId, "TURF_COURT_VIEW").context(), id)));
   }
 
   @PostMapping("/courts")
@@ -104,16 +104,27 @@ public class TurfController {
       @RequestParam(defaultValue = "1") @Min(1) @Max(24) int durationHours) {
     return ok(
         service.availability(
-            authorize(r, organizationId, "TURF_BOOKING_READ").context(), courtId, date, durationHours));
+            authorize(r, organizationId, "TURF_BOOKING_VIEW").context(), courtId, date, durationHours));
   }
 
   @PostMapping("/bookings")
   @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
   public Object booking(
       HttpServletRequest r, @PathVariable UUID organizationId, @Valid @RequestBody AdminBooking body) {
-    return ok(
-        service.adminBooking(
-            authorize(r, organizationId, "TURF_BOOKING_CREATE").context(), body.toEntity()));
+    var a = authorize(r, organizationId, "TURF_BOOKING_CREATE");
+    var b = body.toEntity();
+    return ok(service.createDirectBooking(a.context(), b.slot(), b.customerPhone(), b.customerName(),
+        b.notes(), "ADMIN", a.actor()));
+  }
+
+  @PostMapping("/bookings/direct")
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public Object directBooking(
+      HttpServletRequest request, @PathVariable UUID organizationId,
+      @Valid @RequestBody DirectBooking body) {
+    var a = authorize(request, organizationId, "TURF_BOOKING_CREATE");
+    return ok(service.createDirectBooking(a.context(), body.slot().toEntity(), body.customerPhone(),
+        body.customerName(), body.notes(), "ADMIN", a.actor()));
   }
 
   @GetMapping("/bookings")
@@ -124,12 +135,12 @@ public class TurfController {
       @RequestParam LocalDate to,
       @RequestParam(defaultValue = "0") @Min(0) int page) {
     return ok(
-        service.bookings(authorize(r, organizationId, "TURF_BOOKING_READ").context(), from, to, page));
+        service.bookings(authorize(r, organizationId, "TURF_BOOKING_VIEW").context(), from, to, page));
   }
 
   @GetMapping("/bookings/{id}")
   public Object booking(HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    return ok(service.detail(authorize(r, organizationId, "TURF_BOOKING_READ").context(), id));
+    return ok(service.detail(authorize(r, organizationId, "TURF_BOOKING_VIEW").context(), id));
   }
 
   @PatchMapping("/bookings/{id}/cancellation")
@@ -152,36 +163,36 @@ public class TurfController {
         authorize(
             r,
             organizationId,
-            "REFUND".equals(body.kind()) ? "TURF_PAYMENT_REFUND" : "TURF_PAYMENT_RECORD");
+            "REFUND".equals(body.kind()) ? "TURF_PAYMENT_REFUND" : "TURF_PAYMENT_CREATE");
     return ok(service.payment(a.context(), id, body.toEntity(), a.actor()));
   }
 
   @GetMapping("/bookings/{id}/payments")
   public Object payments(HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    return ok(service.ledger(authorize(r, organizationId, "TURF_PAYMENT_READ").context(), id));
+    return ok(service.ledger(authorize(r, organizationId, "TURF_PAYMENT_VIEW").context(), id));
   }
 
   @PostMapping("/blocks")
   public Object block(
       HttpServletRequest r, @PathVariable UUID organizationId, @Valid @RequestBody Block body) {
-    return ok(service.block(authorize(r, organizationId, "TURF_BLOCK_MANAGE").context(), body.toEntity()));
+    return ok(service.block(authorize(r, organizationId, "TURF_SCHEDULE_MANAGE").context(), body.toEntity()));
   }
 
   @GetMapping("/blocks")
   public Object blocks(HttpServletRequest r, @PathVariable UUID organizationId) {
-    return ok(service.blocks(authorize(r, organizationId, "TURF_BLOCK_MANAGE").context()));
+    return ok(service.blocks(authorize(r, organizationId, "TURF_SCHEDULE_MANAGE").context()));
   }
 
   @PatchMapping("/blocks/{id}/release")
   public Object releaseBlock(
       HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    service.releaseBlock(authorize(r, organizationId, "TURF_BLOCK_MANAGE").context(), id);
+    service.releaseBlock(authorize(r, organizationId, "TURF_SCHEDULE_MANAGE").context(), id);
     return ok("Block released");
   }
 
   @GetMapping("/content")
   public Object contents(HttpServletRequest r, @PathVariable UUID organizationId) {
-    return ok(service.contents(authorize(r, organizationId, "TURF_CONTENT_READ").context(), false));
+    return ok(service.contents(authorize(r, organizationId, "TURF_SETTINGS_VIEW").context(), false));
   }
 
   @PostMapping("/content")
@@ -192,7 +203,7 @@ public class TurfController {
             authorize(
                     r,
                     organizationId,
-                    "GALLERY".equals(body.kind()) ? "TURF_GALLERY_MANAGE" : "TURF_CONTENT_UPDATE")
+                    "GALLERY".equals(body.kind()) ? "TURF_SETTINGS_UPDATE" : "TURF_SETTINGS_UPDATE")
                 .context(),
             null,
             body.toEntity()));
@@ -204,18 +215,18 @@ public class TurfController {
       @PathVariable UUID organizationId,
       @PathVariable UUID id,
       @Valid @RequestBody Content body) {
-    var a = authorize(r, organizationId, "TURF_CONTENT_UPDATE");
+    var a = authorize(r, organizationId, "TURF_SETTINGS_UPDATE");
     if ("GALLERY".equals(body.kind()) || "GALLERY".equals(service.contentKind(a.context(), id)))
-      authorize(r, organizationId, "TURF_GALLERY_MANAGE");
+      authorize(r, organizationId, "TURF_SETTINGS_UPDATE");
     return ok(service.content(a.context(), id, body.toEntity()));
   }
 
   @DeleteMapping("/content/{id}")
   public Object deleteContent(
       HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    var a = authorize(r, organizationId, "TURF_CONTENT_UPDATE");
+    var a = authorize(r, organizationId, "TURF_SETTINGS_UPDATE");
     if ("GALLERY".equals(service.contentKind(a.context(), id)))
-      authorize(r, organizationId, "TURF_GALLERY_MANAGE");
+      authorize(r, organizationId, "TURF_SETTINGS_UPDATE");
     service.deleteContent(a.context(), id);
     return ok("Content deleted");
   }
@@ -226,6 +237,6 @@ public class TurfController {
       @PathVariable UUID organizationId,
       @RequestParam LocalDate from,
       @RequestParam LocalDate to) {
-    return ok(service.report(authorize(r, organizationId, "TURF_REPORT_READ").context(), from, to));
+    return ok(service.report(authorize(r, organizationId, "TURF_REPORT_VIEW").context(), from, to));
   }
 }

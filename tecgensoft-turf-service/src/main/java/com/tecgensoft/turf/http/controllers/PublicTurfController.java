@@ -2,6 +2,7 @@ package com.tecgensoft.turf.http.controllers;
 
 import com.tecgensoft.turf.http.dtos.TurfRequests.*;
 import com.tecgensoft.turf.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
@@ -24,7 +25,7 @@ public class PublicTurfController {
     var t = core.resolve(host);
     if (!t.organizationId().equals(organizationId))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found");
-    if (!core.entitlements(t.organizationId()).features().contains(feature))
+    if (!Boolean.TRUE.equals(core.entitlements(t.organizationId()).features().get(feature)))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Feature disabled");
     return new TurfService.Context(t.organizationId());
   }
@@ -34,69 +35,80 @@ public class PublicTurfController {
   }
 
   @GetMapping("/venue")
-  public Object venue(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
+  public Object venue(HttpServletRequest request, @PathVariable UUID organizationId) {
     return ok(
         com.tecgensoft.turf.mapper.TurfMapper.toEntity(
-            service.venue(context(host, organizationId, "VENUE_SETTINGS"))));
+            service.venue(context(request.getServerName(), organizationId, "VENUE_SETTINGS"))));
   }
 
   @GetMapping("/content")
-  public Object content(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
-    return ok(service.contents(context(host, organizationId, "WEBSITE_CONTENT"), true));
+  public Object content(HttpServletRequest request, @PathVariable UUID organizationId) {
+    return ok(service.contents(context(request.getServerName(), organizationId, "WEBSITE_CONTENT"), true));
   }
 
   @GetMapping("/courts")
-  public Object courts(@RequestHeader("X-Frontend-Host") String host, @PathVariable UUID organizationId) {
-    return ok(service.courts(context(host, organizationId, "COURT_MANAGEMENT"), true));
+  public Object courts(HttpServletRequest request, @PathVariable UUID organizationId) {
+    return ok(service.courts(context(request.getServerName(), organizationId, "COURT_MANAGEMENT"), true));
   }
 
   @GetMapping("/availability")
   public Object availability(
-      @RequestHeader("X-Frontend-Host") String host,
+      HttpServletRequest request,
       @PathVariable UUID organizationId,
       @RequestParam UUID courtId,
       @RequestParam LocalDate date,
       @RequestParam(defaultValue = "1") @Min(1) @Max(24) int durationHours) {
     return ok(
         service.availability(
-            context(host, organizationId, "ONLINE_BOOKING"), courtId, date, durationHours));
+            context(request.getServerName(), organizationId, "ONLINE_BOOKING"), courtId, date, durationHours));
   }
 
   @PostMapping("/holds")
   @ResponseStatus(HttpStatus.CREATED)
   public Object hold(
-      @RequestHeader("X-Frontend-Host") String host,
+      HttpServletRequest request,
       @PathVariable UUID organizationId,
       @Valid @RequestBody Hold r) {
-    return ok(service.hold(context(host, organizationId, "ONLINE_BOOKING"), r.slot().toEntity()));
+    return ok(service.hold(context(request.getServerName(), organizationId, "ONLINE_BOOKING"), r.slot().toEntity()));
   }
 
   @PatchMapping("/holds/{id}/release")
   public Object release(
-      @RequestHeader("X-Frontend-Host") String host,
+      HttpServletRequest request,
       @PathVariable UUID organizationId,
       @PathVariable UUID id,
       @Valid @RequestBody Secret r) {
-    service.release(context(host, organizationId, "ONLINE_BOOKING"), id, r.secret());
+    service.release(context(request.getServerName(), organizationId, "ONLINE_BOOKING"), id, r.secret());
     return ok("Hold released");
   }
 
   @PostMapping("/bookings")
   @ResponseStatus(HttpStatus.CREATED)
   public Object checkout(
-      @RequestHeader("X-Frontend-Host") String host,
+      HttpServletRequest request,
       @PathVariable UUID organizationId,
       @Valid @RequestBody Checkout r) {
-    return ok(service.checkout(context(host, organizationId, "ONLINE_BOOKING"), r.toEntity()));
+    return ok(service.checkout(context(request.getServerName(), organizationId, "ONLINE_BOOKING"), r.toEntity()));
+  }
+
+  @PostMapping("/direct-bookings")
+  @ResponseStatus(HttpStatus.CREATED)
+  public Object directBooking(
+      HttpServletRequest request,
+      @PathVariable UUID organizationId,
+      @Valid @RequestBody DirectBooking body) {
+    var ctx = context(request.getServerName(), organizationId, "ONLINE_BOOKING");
+    return ok(service.createDirectBooking(ctx, body.slot().toEntity(), body.customerPhone(),
+        body.customerName(), body.notes(), "PUBLIC", null));
   }
 
   @PatchMapping("/bookings/{id}/payment-reference")
   public Object reference(
-      @RequestHeader("X-Frontend-Host") String host,
+      HttpServletRequest request,
       @PathVariable UUID organizationId,
       @PathVariable UUID id,
       @Valid @RequestBody Reference r) {
-    service.submitReference(context(host, organizationId, "ONLINE_BOOKING"), id, r.toEntity());
+    service.submitReference(context(request.getServerName(), organizationId, "ONLINE_BOOKING"), id, r.toEntity());
     return ok("Reference submitted for admin verification");
   }
 }

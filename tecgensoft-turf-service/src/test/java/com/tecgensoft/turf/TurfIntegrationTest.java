@@ -40,9 +40,14 @@ class TurfIntegrationTest {
               UUID.randomUUID(),
               "TEST",
               1,
+              "TURF",
+              "TURF",
               "ACTIVE",
               true,
-              Set.of("ONLINE_BOOKING", "COURT_MANAGEMENT"),
+              true,
+              false,
+              0,
+              Map.of("ONLINE_BOOKING", true, "COURT_MANAGEMENT", true, "ADMIN_BOOKING", true),
               Map.of("MAX_COURTS", 1));
         }
       };

@@ -26,7 +26,7 @@ public class SwaggerConfig {
     return GroupedOpenApi.builder()
         .group("internal")
         .displayName("Organization APIs")
-        .pathsToMatch("/api/v1/turf/**")
+        .pathsToMatch("/api/v1/turf/**", "/api/v1/admin/turf/**")
         .build();
   }
 

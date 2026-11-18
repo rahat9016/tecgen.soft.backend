@@ -53,6 +53,9 @@ public final class TurfCommands {
       String source,
       String notes) {}
 
+  public record DirectBooking(
+      Slot slot, String customerPhone, String customerName, String notes) {}
+
   public record Secret(String secret) {}
 
   public record Reference(String secret, String reference) {}

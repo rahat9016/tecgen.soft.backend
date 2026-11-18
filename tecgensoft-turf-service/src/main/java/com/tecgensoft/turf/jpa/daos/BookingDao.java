@@ -16,6 +16,7 @@ public class BookingDao {
   private Instant createdAt;
   private Instant updatedAt;
   private UUID organizationId;
+  private UUID createdByUserId;
 
   private UUID courtId;
   private UUID reservationId;

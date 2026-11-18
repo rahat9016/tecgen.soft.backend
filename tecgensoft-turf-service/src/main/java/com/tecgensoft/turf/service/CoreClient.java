@@ -34,9 +34,14 @@ public class CoreClient {
       UUID packageId,
       String packageCode,
       int version,
+      String product,
+      String productCode,
       String subscriptionStatus,
       boolean active,
-      Set<String> features,
+      boolean isActive,
+      boolean isTrial,
+      long trialDaysRemaining,
+      Map<String, Object> features,
       Map<String, Integer> limits) {}
 
   public record Decision(boolean allowed, String reasonCode, UUID userId) {}

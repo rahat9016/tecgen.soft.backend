@@ -26,6 +26,8 @@ public final class PermissionPolicy {
                     PermissionCode.ORGANIZATION_LIST,
                     PermissionCode.ORGANIZATION_UPDATE,
                     PermissionCode.ORGANIZATION_DELETE,
+                    PermissionCode.PRODUCT_CREATE, PermissionCode.PRODUCT_READ,
+                    PermissionCode.PRODUCT_UPDATE, PermissionCode.PRODUCT_DELETE,
 
                     PermissionCode.ROLE_CREATE,
                     PermissionCode.ROLE_READ,
@@ -49,7 +51,18 @@ public final class PermissionPolicy {
                     PermissionCode.PACKAGE_UPDATE,
                     PermissionCode.SUBSCRIPTION_ASSIGN,
                     PermissionCode.SUBSCRIPTION_READ,
-                    PermissionCode.SUBSCRIPTION_UPDATE
+                    PermissionCode.SUBSCRIPTION_UPDATE,
+                    PermissionCode.PRODUCT_VIEW, PermissionCode.PRODUCT_ACTIVATE, PermissionCode.PRODUCT_DEACTIVATE
+                    ,PermissionCode.PRODUCT_VIEW, PermissionCode.PRODUCT_ACTIVATE, PermissionCode.PRODUCT_DEACTIVATE,
+                    PermissionCode.PACKAGE_VIEW, PermissionCode.PACKAGE_ACTIVATE, PermissionCode.PACKAGE_DEACTIVATE,
+                    PermissionCode.FEATURE_VIEW, PermissionCode.FEATURE_CREATE, PermissionCode.FEATURE_UPDATE,
+                    PermissionCode.FEATURE_ACTIVATE, PermissionCode.FEATURE_DEACTIVATE,
+                    PermissionCode.SUBSCRIPTION_CREATE, PermissionCode.SUBSCRIPTION_ACTIVATE,
+                    PermissionCode.SUBSCRIPTION_SUSPEND, PermissionCode.SUBSCRIPTION_CANCEL,
+                    PermissionCode.SUBSCRIPTION_RENEW, PermissionCode.SUBSCRIPTION_EXTEND_TRIAL,
+                    PermissionCode.SUBSCRIPTION_PAYMENT_VIEW, PermissionCode.SUBSCRIPTION_PAYMENT_CREATE,
+                    PermissionCode.SUBSCRIPTION_PAYMENT_REFUND
+                    ,PermissionCode.SUBSCRIPTION_VIEW
             );
 
     // ========================================
@@ -99,6 +112,17 @@ public final class PermissionPolicy {
                     PermissionCode.ORDER_READ,
                     PermissionCode.ORDER_UPDATE,
                     PermissionCode.ORDER_CANCEL
+                    ,PermissionCode.TURF_COURT_VIEW, PermissionCode.TURF_COURT_CREATE,
+                    PermissionCode.TURF_COURT_UPDATE, PermissionCode.TURF_COURT_DELETE,
+                    PermissionCode.TURF_COURT_MANAGE, PermissionCode.TURF_BOOKING_VIEW,
+                    PermissionCode.TURF_BOOKING_CREATE, PermissionCode.TURF_BOOKING_UPDATE,
+                    PermissionCode.TURF_BOOKING_CANCEL, PermissionCode.TURF_BOOKING_CONFIRM,
+                    PermissionCode.TURF_BOOKING_MANAGE, PermissionCode.TURF_PAYMENT_VIEW,
+                    PermissionCode.TURF_PAYMENT_CREATE, PermissionCode.TURF_PAYMENT_UPDATE,
+                    PermissionCode.TURF_PAYMENT_REFUND, PermissionCode.TURF_PAYMENT_MANAGE,
+                    PermissionCode.TURF_REPORT_VIEW, PermissionCode.TURF_ADVANCED_REPORT_VIEW,
+                    PermissionCode.TURF_SETTINGS_VIEW, PermissionCode.TURF_SETTINGS_UPDATE,
+                    PermissionCode.TURF_SCHEDULE_MANAGE, PermissionCode.TURF_PRICE_MANAGE
             );
 
     // ========================================

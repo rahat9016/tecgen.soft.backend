@@ -3,9 +3,23 @@ package com.tecgensoft.turf.http.dtos;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 
 public final class TurfRequests {
+  public record BookingRequest(@NotNull UUID courtId, @NotNull LocalDate bookingDate,
+      @NotNull LocalTime startTime, @NotNull LocalTime endTime,
+      @NotBlank @Size(max=30) String customerPhone, @Size(max=120) String customerName,
+      @Size(max=1000) String notes) {
+    public com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking toEntity() {
+      if (startTime.getMinute()!=0 || startTime.getSecond()!=0 || endTime.getMinute()!=0 || endTime.getSecond()!=0
+          || !endTime.isAfter(startTime)) throw new IllegalArgumentException("Booking time must be whole, increasing hours");
+      return new com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking(
+          new com.tecgensoft.turf.service.domain.TurfCommands.Slot(courtId, bookingDate,
+              startTime.getHour(), (int) java.time.Duration.between(startTime,endTime).toHours()),
+          customerPhone, customerName, notes);
+    }
+  }
   public record Venue(
       @NotBlank String name,
       @NotBlank String phone,
@@ -106,6 +120,17 @@ public final class TurfRequests {
     public com.tecgensoft.turf.service.domain.TurfCommands.AdminBooking toEntity() {
       return new com.tecgensoft.turf.service.domain.TurfCommands.AdminBooking(
           slot.toEntity(), customerName, customerPhone, customerEmail, source, notes);
+    }
+  }
+
+  public record DirectBooking(
+      @NotNull @jakarta.validation.Valid Slot slot,
+      @NotBlank @Size(max = 30) String customerPhone,
+      @Size(max = 120) String customerName,
+      @Size(max = 1000) String notes) {
+    public com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking toEntity() {
+      return new com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking(
+          slot.toEntity(), customerPhone, customerName, notes);
     }
   }
 

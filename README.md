@@ -23,12 +23,12 @@ Tecgen Soft is a Spring Boot SaaS backend for organizations, users, roles, permi
 | Core service | Authentication, organization management, organization-scoped roles and permissions, packages, subscriptions, domain verification, internal authorization, file storage | `http://localhost:8080` |
 | Turf service | Venue settings, courts, availability, holds, bookings, payments/refunds, blocks, website content, reports | `http://localhost:8081` |
 | Core PostgreSQL | Core-owned data | `localhost:5433`, database `tecgensoft_core` |
-| Turf PostgreSQL | Turf-owned data | `localhost:5434`, database `tecgensoft_turf` |
+| Turf PostgreSQL | Turf-owned data | Direct local run: `localhost:5433/tecgensoft_turf`; Compose: `localhost:5434/tecgensoft_turf` |
 | MinIO | Local object storage / console | `http://localhost:9000` / `http://localhost:9001` |
 
 Both modules use Java 26, Spring Boot 4.1.0, Spring Security, JPA, PostgreSQL, and Flyway. Core also provides JWT authentication, OpenAPI/Swagger UI, MinIO/S3 storage, and optional Redis caching in production.
 
-Turf resolves the tenant through core using `X-Frontend-Host`. Administrative turf requests also delegate user authorization to core. The services share an internal service key, but use separate databases. Flyway applies migrations at startup; Hibernate validates the resulting schema.
+Turf resolves the incoming request hostname through Core's verified organization-domain mapping. Administrative turf requests also delegate user authorization to Core. The services share an internal service key, but use separate databases. Flyway applies migrations at startup; Hibernate validates the resulting schema.
 
 ```text
 pom.xml                         Maven reactor for both services
@@ -71,9 +71,9 @@ Stop the stack with `docker compose down`. Named volumes retain database and obj
 
 ## Run locally with Java
 
-Requirements: JDK 26, Docker Compose for dependencies, and Maven or the included module Maven wrappers. Run the following from the repository root.
+Requirements: JDK 26, PostgreSQL databases for Core and Turf, and Maven or the included module Maven wrappers. Docker Compose is optional if those dependencies are already running locally.
 
-After configuring `.env`, start only the infrastructure:
+If using Docker Compose for infrastructure, configure `.env` and run:
 
 ```sh
 docker compose up -d core-db turf-db minio
@@ -100,11 +100,10 @@ export MINIO_URL=http://localhost:9000
 sh tecgensoft-core-service/mvnw -f tecgensoft-core-service/pom.xml spring-boot:run
 ```
 
-Start turf in a second terminal after loading `.env` there:
+Start turf in a second terminal after loading `.env` there. For your local PostgreSQL database, use port 5433 and database `tecgensoft_turf`:
 
 ```sh
-export DATABASE_URL=jdbc:postgresql://localhost:5434/tecgensoft_turf
-export DATABASE_USERNAME=tecgensoft
+export DATABASE_URL=jdbc:postgresql://localhost:5433/tecgensoft_turf
 export DATABASE_PASSWORD="$TURF_DB_PASSWORD"
 export CORE_URL=http://localhost:8080
 sh tecgensoft-turf-service/mvnw -f tecgensoft-turf-service/pom.xml spring-boot:run
@@ -191,7 +190,7 @@ Feature entitlement and user permission are separate requirements. Buying a feat
 4. Create a `TURF` package with the required features and limits, then assign a dated active subscription to the organization.
 5. Add a tenant domain. Publish the returned `challenge` as a DNS TXT record at `_tecgen-verification.<hostname>`, then call its verification endpoint.
 6. Configure organization roles and permissions as needed.
-7. As an authorized organization user, send the verified hostname in `X-Frontend-Host` to turf. Create venue settings and courts, then publish website content.
+7. As an authorized organization user, use the verified organization hostname to reach Turf. Create venue settings and courts, then publish website content.
 8. Public clients can browse availability, create a hold, and check out using the hold ID and secret. Submit a payment reference for administrator verification; administrators record verified payments and any refunds.
 
 A hosts-file entry does not satisfy DNS TXT verification. The smoke script bypasses DNS only by modifying its disposable test fixture; that is not the normal onboarding flow.
@@ -229,27 +228,46 @@ Legacy list APIs generally use one-based `page` and `limit` (defaults `1` and `2
 
 ### Core package and subscription management
 
-Package and subscription management paths require the corresponding platform permission (`PACKAGE_*` or `SUBSCRIPTION_*`). Package creation request fields are defined in [CreatePackageRequest.java](tecgensoft-core-service/src/main/java/com/tecgensoft/http/dtos/requests/CreatePackageRequest.java).
+Catalog, package, subscription, and subscription payment routes require their corresponding Core platform permission. Request validation errors use the standard Core error envelope. Internal service endpoints require `X-Service-Key`; they are not public product APIs.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET, POST | `/api/v1/system/packages` | List/create versioned packages; optional `?product=TURF` or `?product=HOTEL` filter |
-| PATCH | `/api/v1/system/packages/{packageId}/availability` | Change `active` / `availableForSale` |
-| GET | `/api/v1/system/organizations/{organizationId}/subscriptions` | List subscription history |
-| POST | `/api/v1/system/organizations/{organizationId}/subscriptions` | Assign a package subscription |
-| PATCH | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/status` | Activate, suspend, or cancel a subscription |
+| GET, POST | `/api/v1/system/products` | List/create products (`PRODUCT_VIEW`, `PRODUCT_CREATE`) |
+| PATCH | `/api/v1/system/products/{code}` | Update product (`PRODUCT_UPDATE`) |
+| PATCH | `/api/v1/system/products/{code}/activation` | Activate/deactivate product (`PRODUCT_ACTIVATE`, `PRODUCT_DEACTIVATE`) |
+| GET, POST | `/api/v1/system/products/{product}/features` | List/create product features (`FEATURE_VIEW`, `FEATURE_CREATE`) |
+| PATCH | `/api/v1/system/features/{featureId}` | Update feature (`FEATURE_UPDATE`) |
+| PATCH | `/api/v1/system/features/{featureId}/activation` | Activate/deactivate feature (`FEATURE_ACTIVATE`, `FEATURE_DEACTIVATE`) |
+| GET, POST | `/api/v1/system/packages` | List/create versioned packages; filter by `?product=TURF` (`PACKAGE_VIEW`, `PACKAGE_CREATE`) |
+| GET, PATCH | `/api/v1/system/packages/{packageId}` | Read/update package (`PACKAGE_VIEW`, `PACKAGE_UPDATE`) |
+| PATCH | `/api/v1/system/packages/{packageId}/availability` | Change active/sale flags (`PACKAGE_UPDATE`) |
+| PATCH | `/api/v1/system/packages/{packageId}/activation` | Activate/deactivate package (`PACKAGE_ACTIVATE`, `PACKAGE_DEACTIVATE`) |
+| GET, PATCH, DELETE | `/api/v1/system/packages/{packageId}/features/{featureId}` | Read/set/remove typed package feature mapping (`PACKAGE_VIEW`, `PACKAGE_UPDATE`) |
+| GET, POST | `/api/v1/system/organizations/{organizationId}/subscriptions` | Read history/create subscription (`SUBSCRIPTION_VIEW`, `SUBSCRIPTION_CREATE`) |
+| GET | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}` | Read subscription details (`SUBSCRIPTION_VIEW`) |
+| PATCH | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/status` | Activate/suspend/cancel (`SUBSCRIPTION_ACTIVATE`, `SUBSCRIPTION_SUSPEND`, `SUBSCRIPTION_CANCEL`) |
+| POST | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/renewal` | Renew subscription (`SUBSCRIPTION_RENEW`) |
+| POST | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/trial-extension` | Extend trial (`SUBSCRIPTION_EXTEND_TRIAL`) |
+| GET, POST | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/payments` | Payment history/create (`SUBSCRIPTION_PAYMENT_VIEW`, `SUBSCRIPTION_PAYMENT_CREATE`) |
+| PATCH | `/api/v1/system/organizations/{organizationId}/subscriptions/{subscriptionId}/payments/{paymentId}/refund` | Refund (`SUBSCRIPTION_PAYMENT_REFUND`) |
+| GET, POST | `/api/v1/system/organizations/{organizationId}/domains` | List/register tenant domains; new domains are unverified (`ORGANIZATION_READ`, `ORGANIZATION_UPDATE`) |
+| PATCH | `/api/v1/system/organizations/{organizationId}/domains/{domainId}/verification` | Verify/unverify a registered domain (`ORGANIZATION_UPDATE`) |
+
+New organizations assigned `TURF_BASIC` receive the configurable first TURF trial (`TURF_BASIC_TRIAL_DAYS`, default 30). Trials carry no payment record; expiry is scheduled and entitlement lookups deny access after expiry. Package trial and feature configuration use the same `TURF_BASIC` package.
 
 ### Internal core APIs
 
-The entitlement endpoint requires `X-Service-Key: <INTERNAL_SERVICE_KEY>` and supports service-to-service package checks. Tenant resolution and delegated access-check routes listed in older API notes are not implemented in the current Core controller source yet.
+All internal routes require `X-Service-Key: <INTERNAL_SERVICE_KEY>`. Entitlements return subscription state, trial days, boolean feature values, and limits. Tenant resolution only returns verified registered hostnames. Delegated access checks also validate the forwarded Bearer token and organization membership.
 
 | Method | Path | Body / query |
 | --- | --- | --- |
 | GET | `/internal/v1/organizations/{organizationId}/entitlements` | `?product=TURF` or `?product=HOTEL`; returns the effective feature and limit entitlements |
+| POST | `/internal/v1/tenants/resolve` | `{"hostname":"club.example.com"}`; resolve a verified tenant |
+| POST | `/internal/v1/access/check` | Check an organization permission using service key plus user Bearer token |
 
 ### Turf administrative APIs
 
-Prefix: `/api/v1/turf/organizations/{organizationId}`. Every call requires a user Bearer token and `X-Frontend-Host: <verified tenant hostname>`. These routes are written to check organization permission through Core; the delegated access-check controller is not implemented yet.
+Prefix: `/api/v1/turf/organizations/{organizationId}`. Admin calls require a user Bearer token; tenant resolution is performed using the incoming request hostname and verified Core domain mapping. The organization path must match the resolved organization.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -268,11 +286,13 @@ Prefix: `/api/v1/turf/organizations/{organizationId}`. Every call requires a use
 | PATCH, DELETE | `/content/{id}` | Update/delete content |
 | GET | `/reports` | Report with required `from`, `to` dates |
 
+Public no-account booking uses `POST /api/v1/public/turf/bookings`; admin booking uses `POST /api/v1/admin/turf/bookings`. Both accept court, date, whole-hour start/end times, customer phone, optional name, and notes. Public booking requires an active TURF subscription and `ONLINE_BOOKING`; admin booking additionally requires a JWT, organization membership, `ADMIN_BOOKING`, and `TURF_BOOKING_CREATE`. Both call the same Turf booking service and persist `PUBLIC`/`ADMIN` source values; admin rows store the actor user ID. Customer accounts are not involved.
+
 Payment bodies contain `amount`, `method` (`BKASH`, `NAGAD`, `CARD`, `CASH`), `kind` (`ADVANCE`, `BALANCE`, `REFUND`), optional `reference`, `idempotencyKey`, and `verified`. Reuse the same idempotency key when retrying the same payment. A customer-submitted reference does not itself confirm payment.
 
 ### Turf public APIs
 
-Prefix: `/api/v1/public/turf/organizations/{organizationId}`. These calls require `X-Frontend-Host` and an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
+Prefix: `/api/v1/public/turf/organizations/{organizationId}`. These calls resolve the request hostname against verified domains and require an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -323,7 +343,7 @@ export ORGANIZATION_ID='YOUR_ORGANIZATION_UUID'
 export COURT_ID='YOUR_COURT_UUID'
 export BOOKING_DATE='YYYY-MM-DD'
 curl -sS "http://localhost:8081/api/v1/public/turf/organizations/$ORGANIZATION_ID/availability?courtId=$COURT_ID&date=$BOOKING_DATE&durationHours=1" \
-  -H 'X-Frontend-Host: booking.example.com'
+  -H 'Host: booking.example.com'
 ```
 
 ## Build and verification
@@ -381,7 +401,7 @@ This is a repository-based status and proposed continuation plan, not a committe
 - **Database authentication fails after changing passwords:** PostgreSQL's existing volume retains initialized credentials. Update the database credentials deliberately or reset only disposable volumes.
 - **Unsupported Java release:** both modules target Java 26. Check `java -version`, `JAVA_HOME`, and `mvn -version`.
 - **Turf cannot reach core:** host runs need `CORE_URL=http://localhost:8080`; containers use the Compose service hostname. Match `INTERNAL_SERVICE_KEY` across both services.
-- **Tenant resolution fails:** use a registered, DNS-verified hostname in `X-Frontend-Host`, and confirm organization/subscription activity.
+- **Tenant resolution fails:** use a registered, verified hostname and confirm organization/subscription activity.
 - **403 on tenant operations:** check the user's organization role, permission code, enabled package feature, subscription dates, and limits.
 - **409 when reserving a slot:** an overlapping hold, booking, or block may already own it; refresh availability.
 

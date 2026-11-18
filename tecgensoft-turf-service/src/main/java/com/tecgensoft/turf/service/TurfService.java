@@ -46,6 +46,11 @@ public class TurfService {
     return new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found");
   }
 
+  private void requireFeature(Context context,String feature) {
+    if(!Boolean.TRUE.equals(core.entitlements(context.organizationId()).features().get(feature)))
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN,feature+" feature disabled");
+  }
+
   private void organizationLock(UUID id) {
     em.createNativeQuery("select pg_advisory_xact_lock(hashtextextended(:id,0))")
         .setParameter("id", id.toString())
@@ -53,6 +58,7 @@ public class TurfService {
   }
 
   public VenueDao venue(Context c) {
+    core.entitlements(c.organizationId());
     return venues.findByOrganizationId(c.organizationId()).stream()
         .findFirst()
         .orElseThrow(this::missing);
@@ -99,13 +105,16 @@ public class TurfService {
 
   private void enforceCourtLimit(Context c) {
     var e = core.entitlements(c.organizationId());
+    if (!Boolean.TRUE.equals(e.features().get("COURT_MANAGEMENT")))
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "COURT_MANAGEMENT feature disabled");
+    int limit = e.limits().getOrDefault("MAX_COURTS", 0);
     long n =
         em.createQuery(
                 "select count(c) from CourtDao c where c.organizationId=:org and c.active=true",
                 Long.class)
             .setParameter("org", c.organizationId())
             .getSingleResult();
-    if (n >= e.limits().getOrDefault("MAX_COURTS", 0)) throw conflict("Active court limit reached");
+    if (limit >= 0 && n >= limit) throw conflict("Active court limit reached");
   }
 
   public Object createCourt(Context c, Court r) {
@@ -117,6 +126,7 @@ public class TurfService {
   }
 
   public CourtDao court(Context c, UUID id) {
+    requireFeature(c,"COURT_MANAGEMENT");
     return courts
         .findByIdAndOrganizationId(id, c.organizationId())
         .orElseThrow(this::missing);
@@ -145,6 +155,7 @@ public class TurfService {
   }
 
   public Object courts(Context c, boolean publicOnly) {
+    requireFeature(c,"COURT_MANAGEMENT");
     return courts.findByOrganizationId(c.organizationId()).stream()
         .filter(d -> !publicOnly || d.isActive())
         .map(CourtMapper::toEntity)
@@ -275,7 +286,7 @@ public class TurfService {
   public record Held(UUID holdId, String secret, Instant expiresAt, Quote quote) {}
 
   public Held hold(Context c, Slot slot) {
-    if (!core.entitlements(c.organizationId()).features().contains("ONLINE_BOOKING"))
+    if (!Boolean.TRUE.equals(core.entitlements(c.organizationId()).features().get("ONLINE_BOOKING")))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Online booking disabled");
     var court = lockedCourt(c, slot.courtId());
     var v = venue(c);
@@ -329,7 +340,7 @@ public class TurfService {
             local.getHour(),
             (int) Duration.between(r.getStartAt(), r.getEndAt()).toHours());
     var q = quote(v, court(c, r.getCourtId()), slot);
-    if (!core.entitlements(c.organizationId()).features().contains("ONLINE_BOOKING"))
+    if (!Boolean.TRUE.equals(core.entitlements(c.organizationId()).features().get("ONLINE_BOOKING")))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Online booking disabled");
     var b =
         booking(
@@ -398,6 +409,30 @@ public class TurfService {
     return TurfMapper.toEntity(bookings.saveAndFlush(b));
   }
 
+  /** Shared direct booking path used by the unauthenticated customer and authenticated admin APIs. */
+  public TurfModels.Booking createDirectBooking(
+      Context c, Slot slot, String customerPhone, String customerName, String notes,
+      String source, UUID createdByUserId) {
+    var entitlements = core.entitlements(c.organizationId());
+    String requiredFeature = "PUBLIC".equals(source) ? "ONLINE_BOOKING" : "ADMIN_BOOKING";
+    if (!Boolean.TRUE.equals(entitlements.features().get(requiredFeature)))
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, requiredFeature + " feature disabled");
+    organizationLock(c.organizationId());
+    int bookingLimit=entitlements.limits().getOrDefault("MAX_BOOKINGS",-1);
+    if(bookingLimit>=0) {
+      long count=em.createQuery("select count(b) from BookingDao b where b.organizationId=:org and b.status<>'CANCELLED'",Long.class)
+          .setParameter("org",c.organizationId()).getSingleResult();
+      if(count>=bookingLimit) throw conflict("Booking limit reached");
+    }
+    var court = lockedCourt(c, slot.courtId());
+    var quote = quote(venue(c), court, slot);
+    var reservation = reserve(c, court.getId(), quote, "BOOKING", null, null, null);
+    var booking = booking(c, reservation, slot, quote, customerName, customerPhone, null, source, notes);
+    booking.setStatus("CONFIRMED");
+    booking.setCreatedByUserId(createdByUserId);
+    return TurfMapper.toEntity(bookings.saveAndFlush(booking));
+  }
+
   public BookingDao booking(Context c, UUID id) {
     return bookings
         .findByIdAndOrganizationId(id, c.organizationId())
@@ -413,6 +448,7 @@ public class TurfService {
   }
 
   public Object bookings(Context c, LocalDate from, LocalDate to, int page) {
+    requireFeature(c,"BOOKING_MANAGEMENT");
     expireOrganization(c);
     return em
         .createQuery(
@@ -431,11 +467,13 @@ public class TurfService {
   }
 
   public Object detail(Context c, UUID id) {
+    requireFeature(c,"BOOKING_MANAGEMENT");
     var b = lockedBooking(c, id);
     return Map.of("booking", TurfMapper.toEntity(b));
   }
 
   public Object ledger(Context c, UUID id) {
+    requireFeature(c,"PAYMENT_TRACKING");
     booking(c, id);
     return payments.findByOrganizationId(c.organizationId()).stream()
         .filter(p -> p.getBookingId().equals(id))
@@ -452,6 +490,7 @@ public class TurfService {
   }
 
   public TurfModels.Booking cancel(Context c, UUID id, String reason, UUID actor) {
+    requireFeature(c,"BOOKING_MANAGEMENT");
     var b = lockedBooking(c, id);
     var r = reservation(c, b.getReservationId());
     if ("CANCELLED".equals(b.getStatus())) return TurfMapper.toEntity(b);
@@ -470,6 +509,7 @@ public class TurfService {
   }
 
   public TurfModels.Payment payment(Context c, UUID id, Payment request, UUID actor) {
+    requireFeature(c,"PAYMENT_TRACKING");
     var b = lockedBooking(c, id);
     String reference = request.reference() == null ? null : request.reference().strip();
     if (reference != null && reference.isEmpty()) reference = null;
@@ -662,6 +702,7 @@ public class TurfService {
   }
 
   public Object report(Context c, LocalDate from, LocalDate to) {
+    requireFeature(c,"REPORTS");
     if (to.isBefore(from)) throw bad("Report end date must not precede start date");
     expireOrganization(c);
     var bs =
