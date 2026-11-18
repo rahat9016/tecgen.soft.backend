@@ -19,7 +19,6 @@ minio:
   access-key: minioadmin
   secret-key: minioadmin
   bucket-name: familiemunshi-bucket
-
 aws:
   s3:
     region: ${S3_REGION:eu-north-1}
