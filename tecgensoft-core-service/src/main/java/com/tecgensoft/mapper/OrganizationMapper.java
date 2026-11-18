@@ -21,4 +21,20 @@ public final class OrganizationMapper {
                 dao.getUpdatedAt()
         );
     }
+
+    public static OrganizationDao toDao(Organization organization) {
+        OrganizationDao dao = new OrganizationDao(
+                organization.name(),
+                organization.code(),
+                organization.address(),
+                organization.phone(),
+                organization.email()
+        );
+        dao.setId(organization.id());
+        dao.setLogoUrl(organization.logoUrl());
+        dao.setActive(organization.isActive());
+        if (organization.createdAt() != null) dao.setCreatedAt(organization.createdAt());
+        if (organization.updatedAt() != null) dao.setUpdatedAt(organization.updatedAt());
+        return dao;
+    }
 }

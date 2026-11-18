@@ -1,6 +1,6 @@
 package com.tecgensoft.service.entities;
 
-public record CreatedOrganizationResult(
+public record CreatedOrganization(
         Organization organization,
         OrganizationAdminCredentials admin
 ) {}

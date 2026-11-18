@@ -2,6 +2,8 @@ package com.tecgensoft.http.dtos.requests;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
+import com.tecgensoft.service.entities.Organization;
+import org.springframework.web.multipart.MultipartFile;
 
 public record UpdateOrganizationRequest(
         @Size(max = 255, message = "Organization name cannot exceed 255 characters")
@@ -12,5 +14,16 @@ public record UpdateOrganizationRequest(
         @Email(message = "Organization email must be valid")
         @Size(max = 254, message = "Organization email cannot exceed 254 characters")
         String email,
-        Boolean isActive
-) { }
+        Boolean isActive,
+        MultipartFile logo
+) {
+    public Organization toEntity() {
+        return Organization.builder()
+                .name(name)
+                .address(address)
+                .phone(phone)
+                .email(email)
+                .isActive(isActive)
+                .build();
+    }
+}
