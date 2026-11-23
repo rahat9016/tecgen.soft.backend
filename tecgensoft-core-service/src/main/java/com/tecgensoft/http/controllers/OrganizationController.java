@@ -50,6 +50,8 @@ public class OrganizationController {
         var createdOrganization = organizationService.createOrganization(
                 organization,
                 request.getLogo(),
+                request.getAdminEmail(),
+                request.getAdminPassword(),
                 request.toSubscriptionSetup()
         );
 

@@ -51,6 +51,21 @@ public class CreateOrganizationRequest {
             format = "binary")
     private MultipartFile logo;
 
+    @NotBlank(message = "Admin email is required")
+    @Email(message = "Admin email must be valid")
+    @Size(max = 254, message = "Admin email cannot exceed 254 characters")
+    @Schema(description = "Organization admin email",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "admin@acme.com")
+    private String adminEmail;
+
+    @NotBlank(message = "Admin password is required")
+    @Size(min = 8, max = 72, message = "Admin password must be 8 to 72 characters")
+    @Schema(description = "Organization admin password",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "Admin@12345")
+    private String adminPassword;
+
     @NotNull(message = "Package is required")
     @Schema(description = "Package to subscribe",
             requiredMode = Schema.RequiredMode.REQUIRED)

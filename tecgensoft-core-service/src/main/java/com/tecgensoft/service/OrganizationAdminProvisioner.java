@@ -3,7 +3,6 @@ package com.tecgensoft.service;
 
 
 import com.tecgensoft.common.policy.PermissionPolicy;
-import com.tecgensoft.common.utils.OrganizationAdminGenerator;
 import com.tecgensoft.common.utils.Util;
 
 import com.tecgensoft.http.validations.ValidationUtil;
@@ -31,13 +30,13 @@ import com.tecgensoft.service.exceptions.UserEmailAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,18 +54,12 @@ public class OrganizationAdminProvisioner {
     private final UserOrganizationRepository userOrganizationRepository;
     private final UserOrganizationRoleRepository userOrganizationRoleRepository;
 
-    @Value("${organization-admin.email-domain}")
-    private String emailDomain;
-
-    @Value("${organization-admin.common-password}")
-    private String commonPassword;
-
     @Transactional(propagation = Propagation.MANDATORY)
-    public OrganizationAdminCredentials provision(OrganizationDao organization) {
-
-        // ======================================
-        // 1. LOAD DEFAULT ORGANIZATION PERMISSIONS
-        // ======================================
+    public OrganizationAdminCredentials provision(
+            OrganizationDao organization,
+            String adminEmail,
+            String adminPassword
+    ) {
 
         List<String> permissionCodes =
                 PermissionPolicy.getOrganizationPermissions();
@@ -86,38 +79,17 @@ public class OrganizationAdminProvisioner {
             );
         }
 
-        // ======================================
-        // 2. GENERATE ADMIN EMAIL
-        // ======================================
-
-        String email = OrganizationAdminGenerator.generateEmail(
-                organization.getName(),
-                organization.getCode(),
-                emailDomain
-        );
+        String email = adminEmail.trim().toLowerCase(Locale.ROOT);
 
         if (userRepository.existsByEmail(email)) {
             throw new UserEmailAlreadyExistsException(email);
         }
 
-        // ======================================
-        // 3. VALIDATE COMMON PASSWORD
-        // ======================================
-
-        ValidationUtil.validateOrganizationAdminPassword(
-                commonPassword
-        );
-
-        // ======================================
-        // 4. HASH COMMON PASSWORD
-        // ======================================
+        ValidationUtil.validateOrganizationAdminPassword(adminPassword);
 
         String salt = Util.generateSalt();
 
-        String hashedPassword = Util.hashPassword(
-                commonPassword,
-                salt
-        );
+        String hashedPassword = Util.hashPassword(adminPassword, salt);
 
         // ======================================
         // 5. CREATE FIRST ADMIN USER
