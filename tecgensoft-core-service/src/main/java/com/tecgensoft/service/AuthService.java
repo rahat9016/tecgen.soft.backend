@@ -1,14 +1,12 @@
 package com.tecgensoft.service;
 
 import com.tecgensoft.common.utils.Util;
-import com.tecgensoft.http.dtos.requests.ActivateOrganizationAdminRequest;
+import com.tecgensoft.http.dtos.requests.ChangePasswordRequest;
 import com.tecgensoft.http.validations.ValidationUtil;
 import com.tecgensoft.jpa.daos.UserDao;
-import com.tecgensoft.jpa.repositories.UserOrganizationRoleRepository;
 import com.tecgensoft.jpa.repositories.UserRepository;
 import com.tecgensoft.mapper.UserMapper;
 import com.tecgensoft.service.entities.User;
-import com.tecgensoft.service.enums.RoleScope;
 import com.tecgensoft.service.exceptions.InvalidCredentialsException;
 import com.tecgensoft.service.exceptions.UserEmailAlreadyExistsException;
 import jakarta.transaction.Transactional;
@@ -16,15 +14,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.util.Locale;
+import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    private static final String ORGANIZATION_ADMIN_ROLE =
-            "ORGANIZATION_ADMIN";
     private final UserRepository userRepository;
-    private final UserOrganizationRoleRepository userOrganizationRoleRepository;
     private final UserService userService;
 
     // SIGNUP
@@ -73,63 +69,39 @@ public class AuthService {
         // Implementation for logout
     }
     @Transactional
-    public User activateOrganizationAdmin(
-            ActivateOrganizationAdminRequest request
+    public User changePassword(
+            UUID userId,
+            ChangePasswordRequest request
     ) {
 
-        // 3.1 NORMALIZE EMAIL
+        // 1. FIND AUTHENTICATED USER
 
-        String normalizedEmail =
-                normalizeEmail(request.email());
-
-        // 3.2 FIND USER
-
-        UserDao admin = userRepository
-                .findByEmail(normalizedEmail)
+        UserDao user = userRepository
+                .findById(userId)
                 .orElseThrow(
                         InvalidCredentialsException::new
                 );
 
-        // 3.3 ACCOUNT MUST BE INACTIVE
-
-        if (admin.isActive()) {
-            throw new InvalidCredentialsException();
-        }
-
-        // 3.4 VERIFY ORGANIZATION ADMIN ROLE
-
-        boolean isOrganizationAdmin =
-                userOrganizationRoleRepository
-                        .hasPendingOrganizationAdminAssignment(
-                                admin.getId(),
-                                ORGANIZATION_ADMIN_ROLE,
-                                RoleScope.ORGANIZATION
-                        );
-
-        if (!isOrganizationAdmin) {
-            throw new InvalidCredentialsException();
-        }
-
-        // 3.5 VERIFY OLD PASSWORD
+        // 2. VERIFY OLD PASSWORD
 
         boolean validOldPassword =
                 Util.verifyPassword(
                         request.oldPassword(),
-                        admin.getPassword()
+                        user.getPassword()
                 );
 
         if (!validOldPassword) {
             throw new InvalidCredentialsException();
         }
 
-        // 3.6 VALIDATE NEW PASSWORD
+        // 3. VALIDATE NEW PASSWORD (length + must differ)
 
         ValidationUtil.validateNewOrganizationAdminPassword(
                 request.newPassword(),
-                admin.getPassword()
+                user.getPassword()
         );
 
-        // 3.7 GENERATE NEW SALT AND HASH
+        // 4. GENERATE NEW SALT AND HASH
 
         String newSalt = Util.generateSalt();
 
@@ -138,26 +110,22 @@ public class AuthService {
                 newSalt
         );
 
-        // 3.8 UPDATE CREDENTIALS
+        // 5. UPDATE CREDENTIALS
 
-        admin.setSalt(newSalt);
-        admin.setPassword(newHashedPassword);
+        user.setSalt(newSalt);
+        user.setPassword(newHashedPassword);
 
-        // 3.9 ACTIVATE USER ACCOUNT
+        // 6. SAVE CHANGES
 
-        admin.setActive(true);
-
-        // 3.10 SAVE ALL CHANGES
-
-        UserDao savedAdmin =
-                userRepository.saveAndFlush(admin);
+        UserDao savedUser =
+                userRepository.saveAndFlush(user);
 
         log.info(
-                "Organization Admin activated: userId={}",
-                savedAdmin.getId()
+                "Password changed: userId={}",
+                savedUser.getId()
         );
 
-        return UserMapper.toEntity(savedAdmin);
+        return UserMapper.toEntity(savedUser);
     }
 
     private String normalizeEmail(String email) {

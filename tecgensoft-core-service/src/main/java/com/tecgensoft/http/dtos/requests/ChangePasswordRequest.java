@@ -1,16 +1,10 @@
-
 package com.tecgensoft.http.dtos.requests;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record ActivateOrganizationAdminRequest(
-        @NotBlank(message = "Email is required")
-        @Email(message = "Invalid email address")
-        String email,
-
-        @NotBlank(message = "New password is required")
+public record ChangePasswordRequest(
+        @NotBlank(message = "Old password is required")
         @Size(
                 min = 8,
                 max = 72,

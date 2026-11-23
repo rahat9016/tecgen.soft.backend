@@ -14,6 +14,7 @@ public class Constants {
     public static final String LOGIN = "/login";
     public static final String SIGNUP = "/signup";
     public static final String REFRESH_TOKEN = "/refresh-token";
+    public static final String CHANGE_PASSWORD = "/change-password";
 
     // USERS
     public static final String USERS = "/users";
@@ -34,6 +35,16 @@ public class Constants {
     // ORGANIZATIONS
     public static final String ORGANIZATIONS = "/organizations";
 
+    // SUBSCRIPTIONS & BILLING
+    public static final String SUBSCRIPTIONS = "/subscriptions";
+    public static final String SUBSCRIPTION_ID = "/{subscriptionId}";
+    public static final String PAYMENTS = "/payments";
+    public static final String PAYMENT_ID = "/{paymentId}";
+    public static final String SETTLE = "/settle";
+    public static final String STATUS = "/status";
+    public static final String RENEWAL = "/renewal";
+    public static final String TRIAL_EXTENSION = "/trial-extension";
+    public static final String REFUND = "/refund";
 
     // Swagger & Actuator
     public static final String SWAGGER_UI = "/swagger-ui/**";

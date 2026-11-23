@@ -134,7 +134,7 @@ public class OrganizationAdminProvisioner {
                 .lastName("Admin")
                 .email(email)
                 .password(hashedPassword)
-                .isActive(false)
+                .isActive(true)
                 .build();
 
         UserDao adminDao = UserMapper.toDao(

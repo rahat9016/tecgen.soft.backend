@@ -7,12 +7,26 @@ public final class SubscriptionMapper {
     private SubscriptionMapper() { }
 
     public static Subscription toEntity(SubscriptionDao dao) {
-        return new Subscription(
-                dao.getId(), dao.getOrganization().getId(), dao.getPackageDao().getId(),
-                dao.getPackageDao().getCode(), dao.getPackageDao().getVersion(), dao.getProduct(),
-                dao.getStatus(), dao.getBillingPeriod(), dao.getStartsAt(), dao.getEndsAt(),
-                dao.getAgreedPrice(), dao.getCreatedAt(), dao.isTrial(), dao.getTrialStartDate(),
-                dao.getTrialEndDate(), dao.getActivatedAt(), dao.getCancelledAt(), dao.getUpdatedAt()
-        );
+        return Subscription.builder()
+                .id(dao.getId())
+                .organizationId(dao.getOrganization().getId())
+                .packageId(dao.getPackageDao().getId())
+                .packageCode(dao.getPackageDao().getCode())
+                .packageVersion(dao.getPackageDao().getVersion())
+                .product(dao.getProduct())
+                .status(dao.getStatus())
+                .billingPeriod(dao.getBillingPeriod())
+                .startsAt(dao.getStartsAt())
+                .endsAt(dao.getEndsAt())
+                .agreedPrice(dao.getAgreedPrice())
+                .createdAt(dao.getCreatedAt())
+                .isTrial(dao.isTrial())
+                .trialStartDate(dao.getTrialStartDate())
+                .trialEndDate(dao.getTrialEndDate())
+                .activatedAt(dao.getActivatedAt())
+                .cancelledAt(dao.getCancelledAt())
+                .updatedAt(dao.getUpdatedAt())
+                .graceDays(dao.getGraceDays())
+                .build();
     }
 }

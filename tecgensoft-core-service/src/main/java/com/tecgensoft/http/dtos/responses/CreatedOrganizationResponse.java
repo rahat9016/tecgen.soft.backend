@@ -4,9 +4,14 @@ import com.tecgensoft.service.entities.CreatedOrganization;
 
 public record CreatedOrganizationResponse(
         OrganizationResponse organization,
-        AdminResponse admin
+        AdminResponse admin,
+        SubscriptionResponse subscription
 ) {
     public CreatedOrganizationResponse(CreatedOrganization result) {
-        this(new OrganizationResponse(result.organization()), new AdminResponse(result.admin()));
+        this(
+                new OrganizationResponse(result.organization()),
+                new AdminResponse(result.admin()),
+                new SubscriptionResponse(result.subscription())
+        );
     }
 }

@@ -3,12 +3,18 @@ package com.tecgensoft.http.dtos.requests;
 import com.tecgensoft.service.entities.Organization;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
 
 @Setter
 @Getter
@@ -43,6 +49,30 @@ public class CreateOrganizationRequest {
             type = "string",
             format = "binary")
     private MultipartFile logo;
+
+    @NotNull(message = "Package is required")
+    @Schema(description = "Package to subscribe",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    private UUID packageId;
+
+    @Schema(description = "Start as free trial", example = "true")
+    private boolean isFreeTrial = false;
+
+    @NotNull(message = "Start date is required")
+    @Schema(description = "Subscription start", example = "2026-11-23T00:00:00Z")
+    private Instant startsAt;
+
+    @NotNull(message = "End date is required")
+    @Schema(description = "Subscription end", example = "2027-01-23T00:00:00Z")
+    private Instant endsAt;
+
+    @NotNull(message = "Grace days is required")
+    @Min(value = 0, message = "Grace days cannot be negative")
+    @Schema(description = "Payment grace days after due (per organization)", example = "7")
+    private Integer graceDays;
+
+    @Schema(description = "Amount paid now for non-trial. Null or 0 becomes DUE", example = "0")
+    private BigDecimal amountPaid;
 
     public Organization toEntity() {
         return Organization.builder()

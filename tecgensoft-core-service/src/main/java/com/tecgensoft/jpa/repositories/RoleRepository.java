@@ -26,6 +26,8 @@ public interface RoleRepository extends JpaRepository<RoleDao, UUID>, JpaSpecifi
 
     Optional<RoleDao> findByIdAndOrganization_IdAndScope(UUID id, UUID organizationId, RoleScope scope);
 
+    Optional<RoleDao> findByNameAndOrganization_IdAndScope(String name, UUID organizationId, RoleScope scope);
+
     Optional<RoleDao> findByNameIgnoreCaseAndScope(String name, RoleScope scope);
 
     @Query("""

@@ -64,6 +64,10 @@ public class SubscriptionDao {
 
     @Column(name = "is_trial", nullable = false)
     private boolean isTrial;
+
+    @Column(name = "grace_days", nullable = false)
+    private int graceDays = 0;
+
     @Column(name = "trial_start_date") private Instant trialStartDate;
     @Column(name = "trial_end_date") private Instant trialEndDate;
     @Column(name = "activated_at") private Instant activatedAt;

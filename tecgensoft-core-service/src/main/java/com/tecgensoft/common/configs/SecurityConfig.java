@@ -61,7 +61,7 @@ public class SecurityConfig {
                         .requestMatchers(POST, API_BASE + AUTH + "/login").permitAll()
                         .requestMatchers(POST, API_BASE + AUTH + "/signup").permitAll()
                         .requestMatchers(POST, API_BASE + AUTH + "/refresh-token").permitAll()
-                        .requestMatchers(POST, API_BASE + AUTH + "/activate-organization-admin").permitAll()
+                        .requestMatchers(POST, API_BASE + AUTH + "/change-password").authenticated()
 
                         // User management endpoints
                         .requestMatchers(GET, API_BASE + USERS + "/me")
@@ -97,6 +97,8 @@ public class SecurityConfig {
                         .requestMatchers(PATCH, API_BASE + ORGANIZATIONS + "/**")
                         .authenticated()
                         .requestMatchers("/error")
-                        .permitAll()).addFilterBefore(filterApiRequest, UsernamePasswordAuthenticationFilter.class).exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, exception) -> errorUtils.writeErrorResponse(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED", "Authentication required or invalid token")).accessDeniedHandler((request, response, exception) -> errorUtils.writeErrorResponse(response, HttpStatus.FORBIDDEN.value(), "FORBIDDEN", "You do not have permission"))).build();
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated()).addFilterBefore(filterApiRequest, UsernamePasswordAuthenticationFilter.class).exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, exception) -> errorUtils.writeErrorResponse(response, HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED", "Authentication required or invalid token")).accessDeniedHandler((request, response, exception) -> errorUtils.writeErrorResponse(response, HttpStatus.FORBIDDEN.value(), "FORBIDDEN", "You do not have permission"))).build();
     }
 }

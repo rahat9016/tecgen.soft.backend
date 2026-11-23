@@ -19,26 +19,18 @@ public class LocalSwaggerConfig {
     public GroupedOpenApi publicApis() {
         return GroupedOpenApi.builder()
                 .group("public")
+                .displayName("Core Service APIs")
                 .pathsToMatch(API_BASE + "/**")
                 .pathsToExclude(API_BASE + "/internal/**", "/internal/**")
                 .build();
     }
 
     @Bean
-    public GroupedOpenApi internalApis() {
-        return GroupedOpenApi.builder()
-                .group("internal")
-                .pathsToMatch("/internal/**", API_BASE + "/internal/**")
-                .build();
-    }
-
-
-    @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
                         .title(APP_NAME)
-                        .description("Familie Munshi API Documentation")
+                        .description("Core Service API Documentation")
                         .version("v1.0.0")
                 )
                 .components(new Components()

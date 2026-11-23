@@ -31,8 +31,18 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationAdminProvisioner organizationAdminProvisioner;
     private final FileStorageService fileStorageService;
+    private final SubscriptionService subscriptionService;
 
-    public CreatedOrganization createOrganization(Organization requestedOrganization, MultipartFile logo) {
+    public CreatedOrganization createOrganization(
+            Organization requestedOrganization,
+            MultipartFile logo,
+            UUID packageId,
+            boolean isFreeTrial,
+            java.time.Instant startsAt,
+            java.time.Instant endsAt,
+            java.math.BigDecimal amountPaid,
+            int graceDays
+    ) {
         String normalizedName = requestedOrganization.name().trim();
         if (organizationRepository.existsByName(normalizedName)) {
             throw new OrganizationNameAlreadyExistsException(normalizedName);
@@ -62,7 +72,13 @@ public class OrganizationService {
         // CREATE ADMIN
         Organization organization = OrganizationMapper.toEntity(saved);
         OrganizationAdminCredentials admin = organizationAdminProvisioner.provision(saved);
-        return new CreatedOrganization(organization, admin);
+
+        // ASSIGN INITIAL SUBSCRIPTION + FIRST INVOICE (same transaction)
+        com.tecgensoft.service.entities.Subscription subscription =
+                subscriptionService.provisionInitialSubscription(
+                        saved, packageId, isFreeTrial, startsAt, endsAt, amountPaid, graceDays);
+
+        return new CreatedOrganization(organization, admin, subscription);
     }
 
     @Transactional(readOnly = true)

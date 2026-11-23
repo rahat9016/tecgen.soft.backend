@@ -46,10 +46,16 @@ public class OrganizationController {
         // 1. CONVERT REQUEST TO ENTITY
         Organization organization = request.toEntity();
 
-        // 2. CREATE ORGANIZATION + ADMIN
+        // 2. CREATE ORGANIZATION + ADMIN + SUBSCRIPTION
         var createdOrganization = organizationService.createOrganization(
                 organization,
-                request.getLogo()
+                request.getLogo(),
+                request.getPackageId(),
+                request.isFreeTrial(),
+                request.getStartsAt(),
+                request.getEndsAt(),
+                request.getAmountPaid(),
+                request.getGraceDays()
         );
 
         // 3. PREPARE RESPONSE

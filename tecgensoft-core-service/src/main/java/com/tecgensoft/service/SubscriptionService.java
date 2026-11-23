@@ -14,6 +14,12 @@ import com.tecgensoft.mapper.SubscriptionMapper;
 import com.tecgensoft.service.entities.Subscription;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.SubscriptionStatus;
+import com.tecgensoft.service.exceptions.PackageNotFoundException;
+import com.tecgensoft.service.exceptions.SubscriptionPaymentNotFoundException;
+import com.tecgensoft.service.exceptions.InvalidSubscriptionPeriodException;
+import com.tecgensoft.service.exceptions.UnsupportedPaymentMethodException;
+import com.tecgensoft.service.exceptions.UnsupportedPaymentStatusException;
+import com.tecgensoft.service.exceptions.InvoiceNotPayableException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,6 +43,7 @@ public class SubscriptionService {
     private final PackageRepository packageRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionPaymentRepository paymentRepository;
+    private final OrganizationPermissionGranter permissionGranter;
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
     @Value("${subscriptions.turf-basic-trial-days:30}")
@@ -47,12 +54,155 @@ public class SubscriptionService {
         return (period==com.tecgensoft.service.enums.BillingPeriod.YEARLY?utc.plusYears(1):utc.plusMonths(1)).toInstant();
     }
 
-    @Scheduled(fixedDelayString="${subscriptions.expiry-scan-ms:60000}")
-    public void expireSubscriptions() {
-        var expired=subscriptionRepository.findAllByStatusInAndEndsAtBefore(
-                List.of(SubscriptionStatus.ACTIVE,SubscriptionStatus.TRIALING),Instant.now());
-        expired.forEach(subscription->subscription.setStatus(SubscriptionStatus.EXPIRED));
-        subscriptionRepository.saveAll(expired);
+    @Scheduled(fixedDelayString = "${billing.cycle-scan-ms:3600000}")
+    public void rollBillingCycles() {
+        Instant now = Instant.now();
+
+        // 1. ROLL SUBSCRIPTIONS PAST PERIOD END (never expire / never stop)
+        var toRoll = subscriptionRepository.findAllByStatusInAndEndsAtBefore(
+                List.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING), now);
+        for (SubscriptionDao subscription : toRoll) {
+            Instant newStart = subscription.getEndsAt();
+            Instant newEnd = periodEnd(newStart, subscription.getBillingPeriod());
+            subscription.setStartsAt(newStart);
+            subscription.setEndsAt(newEnd);
+            if (subscription.isTrial()) {
+                subscription.setTrial(false);
+                subscription.setTrialStartDate(null);
+                subscription.setTrialEndDate(null);
+                subscription.setAgreedPrice(subscription.getPackageDao().getPrice());
+            }
+            subscription.setStatus(SubscriptionStatus.ACTIVE);
+            subscriptionRepository.save(subscription);
+            createInvoice(subscription, subscription.getPackageDao().getPrice(),
+                    "DUE", null, null, newStart, newEnd);
+        }
+
+        // 2. FLIP DUE INVOICES PAST THEIR GRACE WINDOW TO OVERDUE (label only)
+        markOverdue(now);
+    }
+
+    private void markOverdue(Instant now) {
+        var dueInvoices = paymentRepository.findAllByPaymentStatus("DUE");
+        java.util.List<SubscriptionPaymentDao> overdue = new java.util.ArrayList<>();
+        for (SubscriptionPaymentDao invoice : dueInvoices) {
+            int grace = invoice.getSubscription().getGraceDays();
+            Instant cutoff = invoice.getCreatedAt().plusSeconds((long) grace * 86400);
+            if (now.isAfter(cutoff)) {
+                invoice.setPaymentStatus("OVERDUE");
+                overdue.add(invoice);
+            }
+        }
+        if (!overdue.isEmpty()) {
+            paymentRepository.saveAll(overdue);
+        }
+    }
+
+    private SubscriptionPaymentDao createInvoice(
+            SubscriptionDao subscription, java.math.BigDecimal amount, String status,
+            String method, String transactionId, Instant periodStart, Instant periodEnd) {
+        SubscriptionPaymentDao payment = new SubscriptionPaymentDao();
+        payment.setSubscription(subscription);
+        payment.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
+        payment.setCurrency(subscription.getPackageDao().getCurrency());
+        payment.setPaymentMethod(method == null ? "N/A" : method);
+        payment.setPaymentStatus(status);
+        payment.setTransactionId(transactionId);
+        if ("PAID".equals(status)) {
+            payment.setPaymentDate(Instant.now());
+        }
+        payment.setPeriodStart(periodStart);
+        payment.setPeriodEnd(periodEnd);
+        return paymentRepository.saveAndFlush(payment);
+    }
+
+    @Transactional
+    public Subscription provisionInitialSubscription(
+            OrganizationDao organization,
+            UUID packageId,
+            boolean isFreeTrial,
+            Instant startsAt,
+            Instant endsAt,
+            java.math.BigDecimal amountPaid,
+            int graceDays
+    ) {
+        // 1. VALIDATE PERIOD
+        if (!endsAt.isAfter(startsAt)) {
+            throw new InvalidSubscriptionPeriodException();
+        }
+
+        // 2. FIND SELLABLE PACKAGE
+        PackageDao packageDao = packageRepository
+                .findByIdAndActiveTrueAndAvailableForSaleTrue(packageId)
+                .orElseThrow(PackageNotFoundException::new);
+
+        // 3. BUILD SUBSCRIPTION
+        SubscriptionDao subscription = new SubscriptionDao();
+        subscription.setOrganization(organization);
+        subscription.setPackageDao(packageDao);
+        subscription.setProduct(packageDao.getProduct());
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setBillingPeriod(packageDao.getBillingPeriod());
+        subscription.setStartsAt(startsAt);
+        subscription.setEndsAt(endsAt);
+        subscription.setTrial(isFreeTrial);
+        subscription.setGraceDays(graceDays);
+        subscription.setActivatedAt(Instant.now());
+
+        // 4. TRIAL VS PAID PRICING
+        if (isFreeTrial) {
+            subscription.setTrialStartDate(startsAt);
+            subscription.setTrialEndDate(endsAt);
+            subscription.setAgreedPrice(java.math.BigDecimal.ZERO);
+        } else {
+            subscription.setAgreedPrice(packageDao.getPrice());
+        }
+
+        SubscriptionDao saved = subscriptionRepository.saveAndFlush(subscription);
+
+        // 5. GRANT PRODUCT PERMISSIONS
+        permissionGranter.grantProductPermissions(organization.getId(), packageDao.getProduct());
+
+        // 6. CREATE FIRST INVOICE
+        if (isFreeTrial) {
+            createInvoice(saved, java.math.BigDecimal.ZERO, "PAID", "FREE_TRIAL", null, startsAt, endsAt);
+        } else {
+            boolean fullyPaid = amountPaid != null
+                    && amountPaid.compareTo(packageDao.getPrice()) >= 0;
+            createInvoice(saved, packageDao.getPrice(),
+                    fullyPaid ? "PAID" : "DUE", fullyPaid ? "CASH" : null, null, startsAt, endsAt);
+        }
+
+        // 7. RETURN DOMAIN
+        return SubscriptionMapper.toEntity(saved);
+    }
+
+    public SubscriptionPaymentDao payInvoice(
+            UUID organizationId, UUID subscriptionId, UUID paymentId,
+            String method, String transactionId
+    ) {
+        // 1. FIND INVOICE WITHIN ORGANIZATION
+        SubscriptionPaymentDao invoice = paymentRepository
+                .findByIdAndSubscription_Id(paymentId, subscriptionId)
+                .filter(p -> p.getSubscription().getOrganization().getId().equals(organizationId))
+                .orElseThrow(SubscriptionPaymentNotFoundException::new);
+
+        // 2. ONLY DUE / OVERDUE ARE PAYABLE
+        if (!List.of("DUE", "OVERDUE").contains(invoice.getPaymentStatus())) {
+            throw new InvoiceNotPayableException();
+        }
+
+        // 3. VALIDATE METHOD
+        if (!List.of("BKASH", "NAGAD", "SSL_COMMERZ", "BANK", "CASH").contains(method)) {
+            throw new UnsupportedPaymentMethodException(method);
+        }
+
+        // 4. SETTLE
+        invoice.setPaymentStatus("PAID");
+        invoice.setPaymentMethod(method);
+        invoice.setTransactionId(transactionId);
+        invoice.setPaymentDate(Instant.now());
+        return paymentRepository.saveAndFlush(invoice);
     }
 
     public Subscription assign(UUID organizationId, AssignSubscriptionRequest request) {
@@ -107,7 +257,9 @@ public class SubscriptionService {
             dao.setTrialEndDate(dao.getEndsAt());
         } else if (dao.getStatus() == SubscriptionStatus.ACTIVE) dao.setActivatedAt(now);
 
-        return SubscriptionMapper.toEntity(subscriptionRepository.saveAndFlush(dao));
+        SubscriptionDao saved = subscriptionRepository.saveAndFlush(dao);
+        permissionGranter.grantProductPermissions(organizationId, packageDao.getProduct());
+        return SubscriptionMapper.toEntity(saved);
     }
 
     public Subscription updateStatus(
@@ -175,9 +327,9 @@ public class SubscriptionService {
         payment.setSubscription(subscription);
         if(!List.of("BKASH","NAGAD","SSL_COMMERZ","BANK","CASH").contains(payment.getPaymentMethod()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported payment method");
-        if(!List.of("PENDING","SUCCESS","FAILED","REFUNDED").contains(payment.getPaymentStatus()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported payment status");
-        if("SUCCESS".equals(payment.getPaymentStatus())) {
+        if(!List.of("PAID","DUE","OVERDUE","SUCCESS","PENDING","FAILED","REFUNDED").contains(payment.getPaymentStatus()))
+            throw new UnsupportedPaymentStatusException();
+        if("SUCCESS".equals(payment.getPaymentStatus()) || "PAID".equals(payment.getPaymentStatus())) {
             Instant now=payment.getPaymentDate()==null?Instant.now():payment.getPaymentDate();
             subscription.setStatus(SubscriptionStatus.ACTIVE);subscription.setTrial(false);
             subscription.setTrialStartDate(null);subscription.setTrialEndDate(null);subscription.setActivatedAt(now);
@@ -229,18 +381,16 @@ public class SubscriptionService {
 
         Instant now = Instant.now();
         String status = subscription.getStatus().name();
-        boolean active = organization.isActive() && (subscription.getStatus() == SubscriptionStatus.ACTIVE
-                || subscription.getStatus() == SubscriptionStatus.TRIALING);
-        if (!organization.isActive()) status = "INACTIVE";
-        else if (active && subscription.getStartsAt().isAfter(now)) {
+        boolean active = organization.isActive()
+                && subscription.getStatus() != SubscriptionStatus.CANCELLED
+                && subscription.getStatus() != SubscriptionStatus.SUSPENDED;
+        if (!organization.isActive()) {
+            status = "INACTIVE";
+        } else if (active && subscription.getStartsAt().isAfter(now)) {
             status = "NOT_STARTED";
             active = false;
-        } else if (active && subscription.getEndsAt() != null && !subscription.getEndsAt().isAfter(now)) {
-            status = "EXPIRED";
-            active = false;
-            subscription.setStatus(SubscriptionStatus.EXPIRED);
-            subscriptionRepository.save(subscription);
         }
+        // NOTE: endsAt past এলেও active থাকে — billing আলাদা, access বন্ধ হয় না
 
         PackageDao packageDao = subscription.getPackageDao();
         var featureData=featureData(packageDao);

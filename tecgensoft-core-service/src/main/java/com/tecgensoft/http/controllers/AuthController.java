@@ -2,6 +2,7 @@ package com.tecgensoft.http.controllers;
 
 
 import com.tecgensoft.common.utils.JwtUtil;
+import com.tecgensoft.http.dtos.requests.ChangePasswordRequest;
 import com.tecgensoft.http.dtos.requests.LoginRequest;
 import com.tecgensoft.http.dtos.requests.RefreshTokenRequest;
 import com.tecgensoft.http.dtos.requests.SignupRequest;
@@ -19,6 +20,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -102,5 +105,23 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 SuccessResponse.of("Token refreshed successfully", new RefreshTokenResponse(newAccessToken)));
+    }
+
+    @PostMapping(CHANGE_PASSWORD)
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Change own password.",
+            responses = {@ApiResponse(responseCode = "200",
+                    description = "Password changed."),
+                    @ApiResponse(responseCode = "400",
+                            description = "Invalid new password."),
+                    @ApiResponse(responseCode = "401",
+                            description = "Invalid credentials.")})
+    public ResponseEntity<SuccessResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication
+    ) {
+        UUID userId = UUID.fromString(authentication.getName());
+        authService.changePassword(userId, request);
+        return ResponseEntity.ok(SuccessResponse.<Void>of("Password changed successfully", null));
     }
 }

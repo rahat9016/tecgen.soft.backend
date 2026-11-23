@@ -4,10 +4,15 @@ import com.tecgensoft.service.enums.BillingPeriod;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.SubscriptionStatus;
 
+import lombok.Builder;
+import lombok.With;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@Builder
+@With
 public record Subscription(
         UUID id,
         UUID organizationId,
@@ -26,5 +31,6 @@ public record Subscription(
         Instant trialEndDate,
         Instant activatedAt,
         Instant cancelledAt,
-        Instant updatedAt
+        Instant updatedAt,
+        int graceDays
 ) { }

@@ -4,7 +4,10 @@ import com.tecgensoft.http.dtos.requests.AssignSubscriptionRequest;
 import com.tecgensoft.http.dtos.requests.UpdateSubscriptionStatusRequest;
 import com.tecgensoft.http.dtos.responses.SubscriptionResponse;
 import com.tecgensoft.http.dtos.requests.CreateSubscriptionPaymentRequest;
+import com.tecgensoft.http.dtos.requests.PayInvoiceRequest;
 import com.tecgensoft.http.dtos.responses.SubscriptionPaymentResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import com.tecgensoft.jpa.daos.SubscriptionPaymentDao;
 import com.tecgensoft.http.dtos.responses.SuccessResponse;
 import com.tecgensoft.service.SubscriptionService;
@@ -122,5 +125,29 @@ public class SystemSubscriptionController {
     @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'SUBSCRIPTION_PAYMENT_REFUND')")
     public SubscriptionPaymentResponse refund(@PathVariable UUID organizationId,@PathVariable UUID subscriptionId,@PathVariable UUID paymentId){
         return new SubscriptionPaymentResponse(subscriptionService.refundPayment(organizationId,subscriptionId,paymentId));
+    }
+
+    @PostMapping("/{subscriptionId}/payments/{paymentId}/settle")
+    @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'SUBSCRIPTION_PAYMENT_CREATE')")
+    @Operation(
+            summary = "Settle a due invoice.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Invoice paid."),
+                    @ApiResponse(responseCode = "400", description = "Unsupported payment method."),
+                    @ApiResponse(responseCode = "404", description = "Invoice not found."),
+                    @ApiResponse(responseCode = "409", description = "Invoice is not payable.")
+            }
+    )
+    public ResponseEntity<SuccessResponse<SubscriptionPaymentResponse>> settle(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID subscriptionId,
+            @PathVariable UUID paymentId,
+            @Valid @RequestBody PayInvoiceRequest request
+    ) {
+        SubscriptionPaymentDao paid = subscriptionService.payInvoice(
+                organizationId, subscriptionId, paymentId,
+                request.getPaymentMethod(), request.getTransactionId());
+        return ResponseEntity.ok(
+                SuccessResponse.of("Invoice paid successfully", new SubscriptionPaymentResponse(paid)));
     }
 }

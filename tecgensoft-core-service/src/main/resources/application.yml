@@ -32,6 +32,9 @@ internal:
 subscriptions:
   turf-basic-trial-days: ${TURF_BASIC_TRIAL_DAYS:30}
 
+billing:
+  cycle-scan-ms: ${BILLING_CYCLE_SCAN_MS:3600000}
+
 storage:
   type: ${STORAGE_TYPE:minio}
 

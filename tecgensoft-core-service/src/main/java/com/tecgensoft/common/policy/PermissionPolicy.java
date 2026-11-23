@@ -2,9 +2,11 @@
 package com.tecgensoft.common.policy;
 
 import com.tecgensoft.service.enums.PermissionCode;
+import com.tecgensoft.service.enums.ProductCode;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class PermissionPolicy {
@@ -66,10 +68,12 @@ public final class PermissionPolicy {
             );
 
     // ========================================
-    // DEFAULT ORGANIZATION ADMIN PERMISSIONS
+    // BASIC ORGANIZATION PERMISSIONS
+    // Granted to every organization at creation,
+    // independent of any subscription.
     // ========================================
 
-    private static final Set<PermissionCode> ORGANIZATION =
+    private static final Set<PermissionCode> BASIC =
             EnumSet.of(
                     // ORGANIZATION MANAGEMENT
                     PermissionCode.ORGANIZATION_READ,
@@ -92,8 +96,16 @@ public final class PermissionPolicy {
 
                     // PERMISSION MANAGEMENT
                     PermissionCode.PERMISSION_READ,
-                    PermissionCode.ROLE_PERMISSION_MANAGE,
+                    PermissionCode.ROLE_PERMISSION_MANAGE
+            );
 
+    // ========================================
+    // TURF PRODUCT PERMISSIONS
+    // Granted only when a TURF subscription is assigned.
+    // ========================================
+
+    private static final Set<PermissionCode> TURF =
+            EnumSet.of(
                     // PRODUCT MANAGEMENT
                     PermissionCode.PRODUCT_CREATE,
                     PermissionCode.PRODUCT_READ,
@@ -112,6 +124,8 @@ public final class PermissionPolicy {
                     PermissionCode.ORDER_READ,
                     PermissionCode.ORDER_UPDATE,
                     PermissionCode.ORDER_CANCEL,
+
+                    // TURF OPERATIONS
                     PermissionCode.TURF_COURT_VIEW,
                     PermissionCode.TURF_COURT_CREATE,
                     PermissionCode.TURF_COURT_UPDATE,
@@ -137,6 +151,28 @@ public final class PermissionPolicy {
             );
 
     // ========================================
+    // PRODUCT -> PERMISSION GROUP MAPPING
+    // ========================================
+
+    private static final Map<ProductCode, Set<PermissionCode>> PRODUCT_PERMISSIONS =
+            Map.of(ProductCode.TURF, TURF);
+
+    // ========================================
+    // ALL ORGANIZATION-SCOPED PERMISSIONS
+    // Union of BASIC + every product group. Used for
+    // membership checks (is this an organization permission?).
+    // ========================================
+
+    private static final Set<PermissionCode> ORGANIZATION =
+            buildOrganizationUnion();
+
+    private static Set<PermissionCode> buildOrganizationUnion() {
+        EnumSet<PermissionCode> union = EnumSet.copyOf(BASIC);
+        PRODUCT_PERMISSIONS.values().forEach(union::addAll);
+        return union;
+    }
+
+    // ========================================
     // GET PLATFORM PERMISSION CODES
     // ========================================
 
@@ -148,11 +184,25 @@ public final class PermissionPolicy {
     }
 
     // ========================================
-    // GET ORGANIZATION PERMISSION CODES
+    // GET BASIC ORGANIZATION PERMISSION CODES
+    // Granted to every organization at creation.
     // ========================================
 
     public static List<String> getOrganizationPermissions() {
-        return ORGANIZATION.stream()
+        return BASIC.stream()
+                .map(PermissionCode::getCode)
+                .sorted()
+                .toList();
+    }
+
+    // ========================================
+    // GET PRODUCT PERMISSION CODES
+    // Granted when the product's subscription is assigned.
+    // ========================================
+
+    public static List<String> getProductPermissions(ProductCode product) {
+        return PRODUCT_PERMISSIONS.getOrDefault(product, Set.of())
+                .stream()
                 .map(PermissionCode::getCode)
                 .sorted()
                 .toList();
