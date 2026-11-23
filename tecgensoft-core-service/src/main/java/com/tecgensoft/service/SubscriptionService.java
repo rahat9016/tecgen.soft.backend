@@ -12,6 +12,7 @@ import com.tecgensoft.jpa.repositories.SubscriptionPaymentRepository;
 import com.tecgensoft.jpa.daos.SubscriptionPaymentDao;
 import com.tecgensoft.mapper.SubscriptionMapper;
 import com.tecgensoft.service.entities.Subscription;
+import com.tecgensoft.service.entities.SubscriptionSetup;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.SubscriptionStatus;
 import com.tecgensoft.service.exceptions.PackageNotFoundException;
@@ -119,40 +120,31 @@ public class SubscriptionService {
     @Transactional
     public Subscription provisionInitialSubscription(
             OrganizationDao organization,
-            UUID packageId,
-            boolean isFreeTrial,
-            Instant startsAt,
-            Instant endsAt,
-            java.math.BigDecimal amountPaid,
-            int graceDays
+            SubscriptionSetup setup
     ) {
-        // 1. VALIDATE PERIOD
-        if (!endsAt.isAfter(startsAt)) {
+        if (!setup.endsAt().isAfter(setup.startsAt())) {
             throw new InvalidSubscriptionPeriodException();
         }
 
-        // 2. FIND SELLABLE PACKAGE
         PackageDao packageDao = packageRepository
-                .findByIdAndActiveTrueAndAvailableForSaleTrue(packageId)
+                .findByIdAndActiveTrueAndAvailableForSaleTrue(setup.packageId())
                 .orElseThrow(PackageNotFoundException::new);
 
-        // 3. BUILD SUBSCRIPTION
         SubscriptionDao subscription = new SubscriptionDao();
         subscription.setOrganization(organization);
         subscription.setPackageDao(packageDao);
         subscription.setProduct(packageDao.getProduct());
         subscription.setStatus(SubscriptionStatus.ACTIVE);
         subscription.setBillingPeriod(packageDao.getBillingPeriod());
-        subscription.setStartsAt(startsAt);
-        subscription.setEndsAt(endsAt);
-        subscription.setTrial(isFreeTrial);
-        subscription.setGraceDays(graceDays);
+        subscription.setStartsAt(setup.startsAt());
+        subscription.setEndsAt(setup.endsAt());
+        subscription.setTrial(setup.isFreeTrial());
+        subscription.setGraceDays(setup.graceDays());
         subscription.setActivatedAt(Instant.now());
 
-        // 4. TRIAL VS PAID PRICING
-        if (isFreeTrial) {
-            subscription.setTrialStartDate(startsAt);
-            subscription.setTrialEndDate(endsAt);
+        if (setup.isFreeTrial()) {
+            subscription.setTrialStartDate(setup.startsAt());
+            subscription.setTrialEndDate(setup.endsAt());
             subscription.setAgreedPrice(java.math.BigDecimal.ZERO);
         } else {
             subscription.setAgreedPrice(packageDao.getPrice());
@@ -160,20 +152,19 @@ public class SubscriptionService {
 
         SubscriptionDao saved = subscriptionRepository.saveAndFlush(subscription);
 
-        // 5. GRANT PRODUCT PERMISSIONS
         permissionGranter.grantProductPermissions(organization.getId(), packageDao.getProduct());
 
-        // 6. CREATE FIRST INVOICE
-        if (isFreeTrial) {
-            createInvoice(saved, java.math.BigDecimal.ZERO, "PAID", "FREE_TRIAL", null, startsAt, endsAt);
+        if (setup.isFreeTrial()) {
+            createInvoice(saved, java.math.BigDecimal.ZERO, "PAID", "FREE_TRIAL", null,
+                    setup.startsAt(), setup.endsAt());
         } else {
-            boolean fullyPaid = amountPaid != null
-                    && amountPaid.compareTo(packageDao.getPrice()) >= 0;
+            boolean fullyPaid = setup.amountPaid() != null
+                    && setup.amountPaid().compareTo(packageDao.getPrice()) >= 0;
             createInvoice(saved, packageDao.getPrice(),
-                    fullyPaid ? "PAID" : "DUE", fullyPaid ? "CASH" : null, null, startsAt, endsAt);
+                    fullyPaid ? "PAID" : "DUE", fullyPaid ? "CASH" : null, null,
+                    setup.startsAt(), setup.endsAt());
         }
 
-        // 7. RETURN DOMAIN
         return SubscriptionMapper.toEntity(saved);
     }
 

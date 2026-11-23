@@ -1,6 +1,7 @@
 package com.tecgensoft.http.dtos.requests;
 
 import com.tecgensoft.service.entities.Organization;
+import com.tecgensoft.service.entities.SubscriptionSetup;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -81,6 +82,17 @@ public class CreateOrganizationRequest {
                 .phone(phone)
                 .email(email)
                 .isActive(true)
+                .build();
+    }
+
+    public SubscriptionSetup toSubscriptionSetup() {
+        return SubscriptionSetup.builder()
+                .packageId(packageId)
+                .isFreeTrial(isFreeTrial)
+                .startsAt(startsAt)
+                .endsAt(endsAt)
+                .amountPaid(amountPaid)
+                .graceDays(graceDays)
                 .build();
     }
 }

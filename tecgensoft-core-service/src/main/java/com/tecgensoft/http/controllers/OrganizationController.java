@@ -50,12 +50,7 @@ public class OrganizationController {
         var createdOrganization = organizationService.createOrganization(
                 organization,
                 request.getLogo(),
-                request.getPackageId(),
-                request.isFreeTrial(),
-                request.getStartsAt(),
-                request.getEndsAt(),
-                request.getAmountPaid(),
-                request.getGraceDays()
+                request.toSubscriptionSetup()
         );
 
         // 3. PREPARE RESPONSE

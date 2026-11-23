@@ -64,10 +64,12 @@ public class AuthService {
 
         return userService.getUser(verifiedUser.getId());
     }
+
     // LOGOUT
     public void logout() {
         // Implementation for logout
     }
+
     @Transactional
     public User changePassword(
             UUID userId,
