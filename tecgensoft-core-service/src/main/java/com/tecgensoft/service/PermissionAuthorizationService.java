@@ -110,6 +110,13 @@ public class PermissionAuthorizationService {
     }
 
 
+    public boolean hasPlatformPermission(UUID userId, String permissionCode) {
+        return userId != null
+                && permissionCode != null
+                && PermissionPolicy.isPlatformPermission(permissionCode)
+                && userPlatformRoleRepository.hasPermission(userId, RoleScope.PLATFORM, permissionCode);
+    }
+
     public void requirePlatformPermission(UUID userId, String permissionCode) {
         if (userId == null || permissionCode == null || !PermissionPolicy.isPlatformPermission(permissionCode)) {
             throw new AccessDeniedException("Platform permission required");

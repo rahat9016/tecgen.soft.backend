@@ -82,6 +82,13 @@ public class RoleService {
                 .stream().map(RoleMapper::toEntity).toList();
     }
 
+    public Role getOrganizationRoleById(UUID callerId, UUID organizationId, UUID roleId) {
+        permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "ROLE_READ");
+        return roleRepository.findByIdAndOrganization_IdAndScope(roleId, organizationId, RoleScope.ORGANIZATION)
+                .map(RoleMapper::toEntity)
+                .orElseThrow(() -> new RoleNotFoundException(roleId));
+    }
+
     @Transactional
     public RolePermissions assignOrganizationRolePermissions(UUID callerId, UUID organizationId, RolePermissions assignment) {
         permissionAuthorizationService.requireOrganizationPermission(callerId, organizationId, "ROLE_PERMISSION_MANAGE");
@@ -97,10 +104,12 @@ public class RoleService {
                 throw new InvalidRolePermissionAssignmentException(code + " is not an organization permission");
             }
         }
-        Set<String> callerPermissions = new HashSet<>(userOrganizationRoleRepository
-                .findEffectivePermissionCodes(callerId, organizationId, RoleScope.ORGANIZATION));
-        if (!callerPermissions.containsAll(requested)) {
-            throw new PermissionDeniedException("You cannot assign permissions beyond your organization role");
+        if (!permissionAuthorizationService.hasPlatformPermission(callerId, "ROLE_PERMISSION_MANAGE")) {
+            Set<String> callerPermissions = new HashSet<>(userOrganizationRoleRepository
+                    .findEffectivePermissionCodes(callerId, organizationId, RoleScope.ORGANIZATION));
+            if (!callerPermissions.containsAll(requested)) {
+                throw new PermissionDeniedException("You cannot assign permissions beyond your organization role");
+            }
         }
         var permissions = permissionRepository.findAllByNameIn(requested);
         if (permissions.size() != requested.size()) {
