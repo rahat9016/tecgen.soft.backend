@@ -51,6 +51,13 @@ public class CreateOrganizationRequest {
             format = "binary")
     private MultipartFile logo;
 
+    @NotBlank(message = "Domain is required")
+    @Size(max = 253, message = "Domain cannot exceed 253 characters")
+    @Schema(description = "Primary organization domain (hostname) for tenant routing",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "turf1.com")
+    private String domain;
+
     @NotBlank(message = "Admin email is required")
     @Email(message = "Admin email must be valid")
     @Size(max = 254, message = "Admin email cannot exceed 254 characters")

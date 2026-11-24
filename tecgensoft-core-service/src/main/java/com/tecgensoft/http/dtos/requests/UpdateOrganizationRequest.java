@@ -1,6 +1,5 @@
 package com.tecgensoft.http.dtos.requests;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import com.tecgensoft.service.entities.Organization;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,9 +10,6 @@ public record UpdateOrganizationRequest(
         String address,
         @Size(max = 30, message = "Phone number cannot exceed 30 characters")
         String phone,
-        @Email(message = "Organization email must be valid")
-        @Size(max = 254, message = "Organization email cannot exceed 254 characters")
-        String email,
         Boolean isActive,
         MultipartFile logo
 ) {
@@ -22,7 +18,6 @@ public record UpdateOrganizationRequest(
                 .name(name)
                 .address(address)
                 .phone(phone)
-                .email(email)
                 .isActive(isActive)
                 .build();
     }

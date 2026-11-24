@@ -3,10 +3,16 @@ package com.tecgensoft.http.controllers;
 import com.tecgensoft.http.dtos.requests.CreateOrganizationRequest;
 import com.tecgensoft.http.dtos.requests.UpdateOrganizationRequest;
 import com.tecgensoft.http.dtos.responses.OrganizationResponse;
+import com.tecgensoft.http.dtos.responses.OrganizationDetailResponse;
+import com.tecgensoft.http.dtos.responses.OrganizationSummaryResponse;
+import com.tecgensoft.http.dtos.responses.SubscriptionResponse;
 import com.tecgensoft.http.dtos.responses.CreatedOrganizationResponse;
 import com.tecgensoft.http.dtos.responses.SuccessResponse;
 import com.tecgensoft.service.OrganizationService;
+import com.tecgensoft.service.OrganizationDomainService;
+import com.tecgensoft.service.SubscriptionService;
 import com.tecgensoft.service.entities.Organization;
+import com.tecgensoft.service.entities.Subscription;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +35,8 @@ import static com.tecgensoft.common.utils.Constants.*;
 @RequiredArgsConstructor
 public class OrganizationController {
     private final OrganizationService organizationService;
+    private final OrganizationDomainService organizationDomainService;
+    private final SubscriptionService subscriptionService;
 
     @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'ORGANIZATION_CREATE')")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -40,6 +48,7 @@ public class OrganizationController {
                     @ApiResponse(responseCode = "401", description = "Unauthenticated.")
             }
     )
+
     public ResponseEntity<SuccessResponse<CreatedOrganizationResponse>> createOrganization(
             @Valid @ModelAttribute CreateOrganizationRequest request
     ) {
@@ -52,6 +61,7 @@ public class OrganizationController {
                 request.getLogo(),
                 request.getAdminEmail(),
                 request.getAdminPassword(),
+                request.getDomain(),
                 request.toSubscriptionSetup()
         );
 
@@ -66,21 +76,37 @@ public class OrganizationController {
 
     @GetMapping
     @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'ORGANIZATION_LIST')")
-    public ResponseEntity<SuccessResponse<List<OrganizationResponse>>> getAllOrganizations() {
-        List<OrganizationResponse> organizations = organizationService.getAllOrganizations().stream()
-                .map(OrganizationResponse::new)
+    public ResponseEntity<SuccessResponse<List<OrganizationSummaryResponse>>> getAllOrganizations() {
+        List<OrganizationSummaryResponse> organizations = organizationService.getAllOrganizations().stream()
+                .map(organization -> {
+                    List<Subscription> history = subscriptionService.getHistory(organization.id());
+                    String status = history.isEmpty() ? "NONE" : history.getFirst().status().name();
+                    return new OrganizationSummaryResponse(
+                            new OrganizationResponse(organization),
+                            organizationDomainService.hostnames(organization.id()),
+                            status
+                    );
+                })
                 .toList();
         return ResponseEntity.ok(SuccessResponse.of("Organizations retrieved successfully", organizations));
     }
 
     @GetMapping(ID)
     @PreAuthorize("@permissionAuthorizationService.hasOrganizationPermission(authentication, #organizationId, 'ORGANIZATION_READ')")
-    public ResponseEntity<SuccessResponse<OrganizationResponse>> getOrganizationById(
+    public ResponseEntity<SuccessResponse<OrganizationDetailResponse>> getOrganizationById(
             @PathVariable("id") UUID organizationId
     ) {
         Organization organization = organizationService.getOrganizationById(organizationId);
+        List<SubscriptionResponse> subscriptions = subscriptionService.getHistory(organizationId).stream()
+                .map(SubscriptionResponse::new)
+                .toList();
+        OrganizationDetailResponse detail = new OrganizationDetailResponse(
+                new OrganizationResponse(organization),
+                organizationDomainService.hostnames(organizationId),
+                subscriptions
+        );
         return ResponseEntity.ok(
-                SuccessResponse.of("Organization retrieved successfully", new OrganizationResponse(organization))
+                SuccessResponse.of("Organization retrieved successfully", detail)
         );
     }
 

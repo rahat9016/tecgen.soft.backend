@@ -20,8 +20,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/v1/system/organizations/{organizationId}/domains")
 @Tag(name="Organization Domains",description="Register and verify hostnames for tenant resolution")
 public class SystemOrganizationDomainController {
-  private static final Pattern HOST = Pattern.compile("(?=^.{1,253}$)^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$");
   private final JdbcTemplate jdbc;
+  private final com.tecgensoft.service.OrganizationDomainService organizationDomainService;
   public record CreateDomainRequest(@NotBlank String hostname) {}
   public record VerifyDomainRequest(boolean verified) {}
   public record Domain(UUID id, UUID organizationId, String hostname, boolean verified) {}
@@ -37,15 +37,8 @@ public class SystemOrganizationDomainController {
   @PreAuthorize("@permissionAuthorizationService.hasPermission(authentication, 'ORGANIZATION_UPDATE')")
   public Domain create(@PathVariable UUID organizationId, @Valid @RequestBody CreateDomainRequest request) {
     String host = request.hostname().trim().toLowerCase(Locale.ROOT);
-    if (!HOST.matcher(host).matches() || host.contains(".."))
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid hostname");
-    UUID id=UUID.randomUUID();
-    try {
-      jdbc.update("insert into organization_domains(id,organization_id,hostname,verified) values (?,?,?,false)",id,organizationId,host);
-    } catch (org.springframework.dao.DuplicateKeyException ex) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT,"Hostname is already registered");
-    }
-    return new Domain(id,organizationId,host,false);
+    UUID id = organizationDomainService.register(organizationId, host, false);
+    return new Domain(id, organizationId, host, false);
   }
 
   @PatchMapping("/{domainId}/verification")

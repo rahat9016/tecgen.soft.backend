@@ -32,12 +32,14 @@ public class OrganizationService {
     private final OrganizationAdminProvisioner organizationAdminProvisioner;
     private final FileStorageService fileStorageService;
     private final SubscriptionService subscriptionService;
+    private final OrganizationDomainService organizationDomainService;
 
     public CreatedOrganization createOrganization(
             Organization requestedOrganization,
             MultipartFile logo,
             String adminEmail,
             String adminPassword,
+            String domain,
             com.tecgensoft.service.entities.SubscriptionSetup subscriptionSetup
     ) {
         String normalizedName = requestedOrganization.name().trim();
@@ -69,6 +71,8 @@ public class OrganizationService {
         // CREATE ADMIN
         Organization organization = OrganizationMapper.toEntity(saved);
         OrganizationAdminCredentials admin = organizationAdminProvisioner.provision(saved, adminEmail, adminPassword);
+
+        organizationDomainService.register(saved.getId(), domain, true);
 
         com.tecgensoft.service.entities.Subscription subscription =
                 subscriptionService.provisionInitialSubscription(saved, subscriptionSetup);
