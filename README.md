@@ -1,6 +1,6 @@
 # Tecgen Soft Backend
 
-Tecgen Soft is a Spring Boot SaaS backend for organizations, users, roles, permissions, subscription packages, and turf booking. This repository contains two runnable services: core and turf. Hotel booking is a future extension; there is no hotel service in this repository.
+Tecgen Soft is a Spring Boot SaaS backend for organizations, users, roles, permissions, subscription packages, and turf booking. This repository contains two services, core and turf, behind one API gateway. Hotel booking is a future extension; there is no hotel service in this repository.
 
 ## Contents
 
@@ -22,21 +22,24 @@ Tecgen Soft is a Spring Boot SaaS backend for organizations, users, roles, permi
 | --- | --- | --- |
 | Core service | Authentication, organization management, organization-scoped roles and permissions, packages, subscriptions, domain verification, internal authorization, file storage | `http://localhost:8080` |
 | Turf service | Venue settings, courts, availability, holds, bookings, payments/refunds, blocks, website content, reports | `http://localhost:8081` |
+| Gateway | The only public entry point (`https://api.tecgensoft.com`): routing, CORS, tenant selection, rate limits, header cleaning | `http://localhost:8000` |
 | Core PostgreSQL | Core-owned data | `localhost:5433`, database `tecgensoft_core` |
 | Turf PostgreSQL | Turf-owned data | Direct local run: `localhost:5433/tecgensoft_turf`; Compose: `localhost:5434/tecgensoft_turf` |
 | MinIO | Local object storage / console | `http://localhost:9000` / `http://localhost:9001` |
 
-Both modules use Java 26, Spring Boot 4.1.0, Spring Security, JPA, PostgreSQL, and Flyway. Core also provides JWT authentication, OpenAPI/Swagger UI, MinIO/S3 storage, and optional Redis caching in production.
+Both services use Java 26, Spring Boot 4.1.0, Spring Security, JPA, PostgreSQL, and Flyway. Core also provides JWT authentication, OpenAPI/Swagger UI, MinIO/S3 storage, and optional Redis caching in production.
 
-Turf resolves the incoming request hostname through Core's verified organization-domain mapping. Administrative turf requests also delegate user authorization to Core. The services share an internal service key, but use separate databases. Flyway applies migrations at startup; Hibernate validates the resulting schema.
+For public requests Turf resolves the site hostname (`X-Tenant-Host`, set by the gateway, otherwise the request host) through Core's verified organization-domain mapping. Administrative turf requests take the organization from the path and delegate user authorization to Core. The services share an internal service key, but use separate databases. Flyway applies migrations at startup; Hibernate validates the resulting schema.
 
 ```text
-pom.xml                         Maven reactor for both services
+pom.xml                         Maven reactor for all modules
 compose.yml                     Local databases, MinIO, and applications
 .env.example                    Compose environment template
 tecgensoft-core-service/         Core application and migrations
 tecgensoft-turf-service/         Turf application and migrations
-scripts/http-smoke.py            HTTP integration smoke workflow
+tecgensoft-gateway/              API gateway (Spring Boot 4.2, Spring Cloud Gateway)
+scripts/gateway-smoke.py         Core, Turf and gateway end-to-end smoke workflow
+scripts/http-smoke.py            Older smoke workflow (targets APIs that no longer exist)
 .github/workflows/main.yml       CI verification workflow
 ```
 
@@ -190,7 +193,7 @@ Feature entitlement and user permission are separate requirements. Buying a feat
 4. Create a `TURF` package with the required features and limits, then assign a dated active subscription to the organization.
 5. Add a tenant domain. Publish the returned `challenge` as a DNS TXT record at `_tecgen-verification.<hostname>`, then call its verification endpoint.
 6. Configure organization roles and permissions as needed.
-7. As an authorized organization user, use the verified organization hostname to reach Turf. Create venue settings and courts, then publish website content.
+7. As an authorized organization user, call the Turf administrative APIs. Create venue settings and courts, then publish website content.
 8. Public clients can browse availability, create a hold, and check out using the hold ID and secret. Submit a payment reference for administrator verification; administrators record verified payments and any refunds.
 
 A hosts-file entry does not satisfy DNS TXT verification. The smoke script bypasses DNS only by modifying its disposable test fixture; that is not the normal onboarding flow.
@@ -267,7 +270,7 @@ All internal routes require `X-Service-Key: <INTERNAL_SERVICE_KEY>`. Entitlement
 
 ### Turf administrative APIs
 
-Prefix: `/api/v1/turf/organizations/{organizationId}`. Admin calls require a user Bearer token; tenant resolution is performed using the incoming request hostname and verified Core domain mapping. The organization path must match the resolved organization.
+Prefix: `/api/v1/turf/organizations/{organizationId}`. Admin calls require a user Bearer token, membership of the organization in the path, the matching permission, and an active subscription. No tenant hostname is needed.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -286,13 +289,13 @@ Prefix: `/api/v1/turf/organizations/{organizationId}`. Admin calls require a use
 | PATCH, DELETE | `/content/{id}` | Update/delete content |
 | GET | `/reports` | Report with required `from`, `to` dates |
 
-Public no-account booking uses `POST /api/v1/public/turf/bookings`; admin booking uses `POST /api/v1/admin/turf/bookings`. Both accept court, date, whole-hour start/end times, customer phone, optional name, and notes. Public booking requires an active TURF subscription and `ONLINE_BOOKING`; admin booking additionally requires a JWT, organization membership, `ADMIN_BOOKING`, and `TURF_BOOKING_CREATE`. Both call the same Turf booking service and persist `PUBLIC`/`ADMIN` source values; admin rows store the actor user ID. Customer accounts are not involved.
+Admin bookings (`POST /bookings`, `POST /bookings/direct`) are confirmed immediately. They require a JWT, organization membership, `ADMIN_BOOKING`, and `TURF_BOOKING_CREATE`, and store the actor user ID.
 
 Payment bodies contain `amount`, `method` (`BKASH`, `NAGAD`, `CARD`, `CASH`), `kind` (`ADVANCE`, `BALANCE`, `REFUND`), optional `reference`, `idempotencyKey`, and `verified`. Reuse the same idempotency key when retrying the same payment. A customer-submitted reference does not itself confirm payment.
 
 ### Turf public APIs
 
-Prefix: `/api/v1/public/turf/organizations/{organizationId}`. These calls resolve the request hostname against verified domains and require an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
+Prefix: `/api/v1/public/turf` (the older `/api/v1/public/turf/organizations/{organizationId}` form still works and must match the site). These calls resolve the site hostname against verified domains and require an eligible tenant subscription, but no user JWT. Hold/booking mutations use the returned secret as an ownership credential.
 
 | Method | Suffix | Purpose |
 | --- | --- | --- |
@@ -305,7 +308,27 @@ Prefix: `/api/v1/public/turf/organizations/{organizationId}`. These calls resolv
 | POST | `/bookings` | Checkout with `holdId`, `secret`, customer details |
 | PATCH | `/bookings/{id}/payment-reference` | Submit `secret` and `reference` |
 
+Checkout returns `CONFIRMED` when the venue needs no advance, otherwise `PENDING_PAYMENT`; an admin must verify the advance within `TURF_PAYMENT_WINDOW_MINUTES` (default 60, never past the slot start) or the slot is freed. Checkout counts toward `MAX_BOOKINGS`. There is no direct public booking.
+
+`GET /api/v1/public/tenant` (Core) returns the site's organization ID, name, logo, product and enabled features.
+
 Dates use `YYYY-MM-DD`. A slot contains `courtId`, `date`, integer `startHour` (0–23), and `durationHours` (1–24), subject to venue restrictions. Availability/pricing uses venue settings and regular/peak court prices.
+
+## API gateway
+
+| Path | Service | Accepted browser origins | Organization |
+| --- | --- | --- | --- |
+| `GET /api/v1/public/tenant` | Core | Organization sites, platform panels | Site hostname |
+| `/api/v1/public/turf/**` | Turf | Organization sites, platform panels | Site hostname |
+| `/api/v1/turf/organizations/{id}/**` | Turf | Platform panels | Path, with JWT |
+| `/api/v1/{auth,users,organizations,permissions,system}/**` | Core | Platform panels | Core's own rules |
+| Everything else, including `/internal/**` and Swagger | none | none | 404 |
+
+A browser on an organization's verified domain needs no extra header: the gateway reads `Origin`, and that always wins over `X-Tenant-Host`. Server-side rendering and mobile clients send no `Origin`, so they must send `X-Tenant-Host: club.example.com`, and any response cache must include the host in its key. These values only select an organization; they never grant access.
+
+Unknown origins get 403, a missing tenant 400, an unknown tenant 404, an unreachable service 503 and an exceeded limit 429 with `Retry-After`. Set `TRUSTED_PROXIES` to the reverse proxy's address, otherwise every client shares the proxy's rate limit. Rate limits are held in memory, so run one gateway instance until they move to Redis. Health is on port 8001 at `/actuator/health`. For local organization sites set `ALLOW_INSECURE_ORIGINS=true`.
+
+Core's port 8080 and Turf's port 8081 must not be reachable from the internet.
 
 ## Request examples
 
@@ -336,14 +359,13 @@ curl -sS http://localhost:8080/api/v1/system/packages \
   }'
 ```
 
-After tenant onboarding, query public availability using the organization and court IDs and a date inside the venue booking window:
+After tenant onboarding, query public availability using the site hostname, the court ID and a date inside the venue booking window:
 
 ```sh
-export ORGANIZATION_ID='YOUR_ORGANIZATION_UUID'
 export COURT_ID='YOUR_COURT_UUID'
 export BOOKING_DATE='YYYY-MM-DD'
-curl -sS "http://localhost:8081/api/v1/public/turf/organizations/$ORGANIZATION_ID/availability?courtId=$COURT_ID&date=$BOOKING_DATE&durationHours=1" \
-  -H 'Host: booking.example.com'
+curl -sS "http://localhost:8000/api/v1/public/turf/availability?courtId=$COURT_ID&date=$BOOKING_DATE&durationHours=1" \
+  -H 'X-Tenant-Host: booking.example.com'
 ```
 
 ## Build and verification
@@ -370,13 +392,13 @@ export TEST_DATABASE_PASSWORD='YOUR_TEST_DATABASE_PASSWORD'
 mvn -B verify
 ```
 
-For the HTTP smoke workflow, point the same variables at a separate pair of disposable databases, then run:
+For the end-to-end smoke workflow, point the same variables at a separate pair of empty, disposable databases, then run:
 
 ```sh
-python3 scripts/http-smoke.py
+python3 scripts/gateway-smoke.py
 ```
 
-The script requires Python 3, `psql`, Java, and both packaged JARs from the build. It starts core/turf on ports `18080`/`18081`, creates fixtures, and exercises authorization, tenant access, pricing, checkout, payment confirmation/idempotency, reports, and competing holds. It terminates its application processes and prints log paths. It writes fixture data to the supplied databases; never use production or shared databases.
+The script requires Python 3, `psql`, Java, and the three packaged JARs from the build. It starts core, turf and the gateway on ports `18080`, `18081` and `18000`, then checks onboarding, tenant isolation, booking, administration, CORS, concurrency, suspension and a core outage. It writes to the supplied databases; never use production or shared databases.
 
 CI creates separate integration and smoke databases, runs `mvn -B verify`, executes the HTTP smoke script, and validates Compose configuration.
 

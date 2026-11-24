@@ -26,7 +26,7 @@ public class WebConfig {
             a ->
                 a.requestMatchers("/swagger-ui/**", "/v3/api-docs/**")
                     .permitAll()
-                    .requestMatchers("/api/v1/turf/**", "/api/v1/public/turf/**", "/api/v1/admin/turf/**")
+                    .requestMatchers("/api/v1/turf/**", "/api/v1/public/turf/**")
                     .permitAll()
                     .anyRequest()
                     .denyAll())
@@ -42,7 +42,7 @@ public class WebConfig {
     config.setAllowedOrigins(
         java.util.Arrays.stream(origins.split(",")).map(String::strip).toList());
     config.setAllowedMethods(java.util.List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-    config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+    config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", TenantHostResolver.HEADER));
     var source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
     return source;

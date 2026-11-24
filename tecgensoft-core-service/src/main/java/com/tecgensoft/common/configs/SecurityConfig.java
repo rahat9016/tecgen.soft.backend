@@ -63,6 +63,9 @@ public class SecurityConfig {
                         .requestMatchers(POST, API_BASE + AUTH + "/refresh-token").permitAll()
                         .requestMatchers(POST, API_BASE + AUTH + "/change-password").authenticated()
 
+                        // =========== PUBLIC — tenant site information ===========
+                        .requestMatchers(GET, API_BASE + PUBLIC + TENANT).permitAll()
+
                         // User management endpoints
                         .requestMatchers(GET, API_BASE + USERS + "/me")
                         .authenticated()

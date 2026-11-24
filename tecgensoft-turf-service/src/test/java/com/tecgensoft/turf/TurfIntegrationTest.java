@@ -47,11 +47,23 @@ class TurfIntegrationTest {
               true,
               false,
               0,
-              Map.of("ONLINE_BOOKING", true, "COURT_MANAGEMENT", true, "ADMIN_BOOKING", true),
-              Map.of("MAX_COURTS", 1));
+              Map.of(
+                  "ONLINE_BOOKING", true,
+                  "COURT_MANAGEMENT", true,
+                  "ADMIN_BOOKING", true,
+                  "BOOKING_MANAGEMENT", true,
+                  "PAYMENT_TRACKING", true),
+              Map.of("MAX_COURTS", 1, "MAX_BOOKINGS", bookingLimit));
         }
       };
     }
+  }
+
+  static volatile int bookingLimit = -1;
+
+  @AfterEach
+  void unlimitedBookings() {
+    bookingLimit = -1;
   }
 
   @Autowired TurfService service;
@@ -117,9 +129,83 @@ class TurfIntegrationTest {
                 new Checkout(held.holdId(), held.secret(), "Customer", "0123", null, null)));
     jdbc.update(
         "update reservations set expires_at=now()-interval '1 second' where id=?", held.holdId());
-    service.availability(context, court, slot(18).date(), 1);
+    service.expire();
     assertEquals("EXPIRED", bookings.findById(receipt.bookingId()).orElseThrow().getStatus());
     assertDoesNotThrow(() -> service.adminBooking(context, admin(18)));
+  }
+
+  @Test
+  void checkoutOpensPaymentWindowBeyondTheHold() {
+    var h = service.hold(context, slot(9));
+    var receipt =
+        service.checkout(context, new Checkout(h.holdId(), h.secret(), "A", "0123", null, null));
+    assertEquals("PENDING_PAYMENT", receipt.status());
+    assertTrue(receipt.paymentExpiresAt().isAfter(Instant.now().plusSeconds(50 * 60)));
+    assertTrue(receipt.paymentExpiresAt().isBefore(Instant.now().plusSeconds(61 * 60)));
+  }
+
+  @Test
+  void missedPaymentWindowFreesTheSlot() {
+    var h = service.hold(context, slot(8));
+    service.checkout(context, new Checkout(h.holdId(), h.secret(), "A", "0123", null, null));
+    assertFalse(available(8));
+    jdbc.update(
+        "update reservations set expires_at=now()-interval '1 second' where id=?", h.holdId());
+    assertTrue(available(8));
+    assertDoesNotThrow(() -> service.hold(context, slot(8)));
+  }
+
+  @Test
+  void bookingLimitCoversCheckoutAndIgnoresCancelled() {
+    var first = service.adminBooking(context, admin(5));
+    bookingLimit = 1;
+    var h = service.hold(context, slot(6));
+    var request = new Checkout(h.holdId(), h.secret(), "A", "0123", null, null);
+    assertThrows(Exception.class, () -> service.checkout(context, request));
+    service.cancel(context, first.id(), "Changed plans", actor);
+    assertDoesNotThrow(() -> service.checkout(context, request));
+  }
+
+  @Test
+  void availabilityDoesNotWaitForACourtLock() throws Exception {
+    try (var connection = jdbc.getDataSource().getConnection();
+        var pool = Executors.newSingleThreadExecutor()) {
+      connection.setAutoCommit(false);
+      try (var lock = connection.prepareStatement("select id from courts where id=? for update")) {
+        lock.setObject(1, court);
+        lock.executeQuery();
+        var read = pool.submit(() -> available(7));
+        assertTrue(read.get(5, TimeUnit.SECONDS));
+      } finally {
+        connection.rollback();
+      }
+    }
+  }
+
+  @Test
+  void otherTenantCannotUseCourtHoldOrSecret() {
+    var other = new TurfService.Context(UUID.randomUUID());
+    var h = service.hold(context, slot(4));
+    assertThrows(Exception.class, () -> service.hold(other, slot(3)));
+    assertThrows(
+        Exception.class, () -> service.availability(other, court, slot(3).date(), 1));
+    assertThrows(Exception.class, () -> service.release(other, h.holdId(), h.secret()));
+    assertThrows(
+        Exception.class,
+        () ->
+            service.checkout(
+                other, new Checkout(h.holdId(), h.secret(), "A", "0123", null, null)));
+  }
+
+  @SuppressWarnings("unchecked")
+  private boolean available(int hour) {
+    var slots =
+        (List<Map<String, Object>>) service.availability(context, court, slot(hour).date(), 1);
+    return slots.stream()
+        .filter(s -> s.get("startHour").equals(hour))
+        .map(s -> (Boolean) s.get("available"))
+        .findFirst()
+        .orElseThrow();
   }
 
   @Test

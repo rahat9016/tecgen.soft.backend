@@ -9,6 +9,8 @@ public class Constants {
     public static final String PUBLIC = "/public";
     public static final String API_BASE = API + API_VERSION;
 
+    public static final String TENANT = "/tenant";
+
     // AUTHENTICATION
     public static final String AUTH = "/auth";
     public static final String LOGIN = "/login";

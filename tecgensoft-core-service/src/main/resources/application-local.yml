@@ -2,7 +2,7 @@ server:
   port: ${PORT:8080}
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/tecgensoft_db
+    url: jdbc:postgresql://localhost:5432/tecgensoft_db
     username: postgres
     password: 9016
     driver-class-name: org.postgresql.Driver
@@ -30,7 +30,7 @@ logging:
     root: INFO
     com.tecgensoft: DEBUG
 
-springdoc:
+spring-doc:
   swagger-ui:
     urls:
       - name: Core Service APIs

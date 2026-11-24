@@ -3,23 +3,9 @@ package com.tecgensoft.turf.http.dtos;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.*;
 
 public final class TurfRequests {
-  public record BookingRequest(@NotNull UUID courtId, @NotNull LocalDate bookingDate,
-      @NotNull LocalTime startTime, @NotNull LocalTime endTime,
-      @NotBlank @Size(max=30) String customerPhone, @Size(max=120) String customerName,
-      @Size(max=1000) String notes) {
-    public com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking toEntity() {
-      if (startTime.getMinute()!=0 || startTime.getSecond()!=0 || endTime.getMinute()!=0 || endTime.getSecond()!=0
-          || !endTime.isAfter(startTime)) throw new IllegalArgumentException("Booking time must be whole, increasing hours");
-      return new com.tecgensoft.turf.service.domain.TurfCommands.DirectBooking(
-          new com.tecgensoft.turf.service.domain.TurfCommands.Slot(courtId, bookingDate,
-              startTime.getHour(), (int) java.time.Duration.between(startTime,endTime).toHours()),
-          customerPhone, customerName, notes);
-    }
-  }
   public record Venue(
       @NotBlank String name,
       @NotBlank String phone,
@@ -99,11 +85,11 @@ public final class TurfRequests {
 
   public record Checkout(
       @NotNull UUID holdId,
-      @NotBlank String secret,
-      @NotBlank String customerName,
-      @NotBlank String customerPhone,
-      @Email String customerEmail,
-      String notes) {
+      @NotBlank @Size(max = 100) String secret,
+      @NotBlank @Size(max = 120) String customerName,
+      @NotBlank @Size(max = 30) String customerPhone,
+      @Email @Size(max = 254) String customerEmail,
+      @Size(max = 1000) String notes) {
     public com.tecgensoft.turf.service.domain.TurfCommands.Checkout toEntity() {
       return new com.tecgensoft.turf.service.domain.TurfCommands.Checkout(
           holdId, secret, customerName, customerPhone, customerEmail, notes);
@@ -140,7 +126,7 @@ public final class TurfRequests {
     }
   }
 
-  public record Reference(@NotBlank String secret, @NotBlank String reference) {
+  public record Reference(@NotBlank @Size(max = 100) String secret, @NotBlank @Size(max = 255) String reference) {
     public com.tecgensoft.turf.service.domain.TurfCommands.Reference toEntity() {
       return new com.tecgensoft.turf.service.domain.TurfCommands.Reference(secret, reference);
     }

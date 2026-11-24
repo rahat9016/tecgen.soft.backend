@@ -1,23 +1,24 @@
 package com.tecgensoft.http.controllers;
 
 import com.tecgensoft.service.InternalServiceKeyValidator;
+import com.tecgensoft.service.OrganizationDomainService;
 import com.tecgensoft.service.PermissionAuthorizationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Locale;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/internal/v1")
 @RequiredArgsConstructor
 public class InternalTurfAccessController {
-    private final JdbcTemplate jdbc;
+    private final OrganizationDomainService domains;
     private final InternalServiceKeyValidator serviceKey;
     private final PermissionAuthorizationService permissions;
 
@@ -31,12 +32,9 @@ public class InternalTurfAccessController {
     public TenantResponse resolve(@RequestHeader(value="X-Service-Key", required=false) String key,
                                   @Valid @RequestBody TenantRequest request) {
         serviceKey.requireValid(key);
-        String hostname = request.hostname().trim().toLowerCase(Locale.ROOT);
-        return jdbc.query("select d.organization_id,o.is_active from organization_domains d " +
-                        "join organizations o on o.id=d.organization_id " +
-                        "where d.hostname=? and d.verified=true",
-                rs -> rs.next() ? new TenantResponse(rs.getObject(1, UUID.class), "TURF", rs.getBoolean(2)) : null,
-                hostname);
+        return domains.findVerified(request.hostname())
+                .map(tenant -> new TenantResponse(tenant.organizationId(), tenant.product(), tenant.active()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Hostname is not registered"));
     }
 
     @PostMapping("/access/check")

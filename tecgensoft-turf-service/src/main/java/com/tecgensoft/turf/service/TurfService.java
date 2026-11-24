@@ -13,6 +13,7 @@ import java.security.*;
 import java.time.*;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,10 @@ public class TurfService {
   private final PaymentRepository payments;
   private final ContentRepository contents;
   private final CoreClient core;
+
+  /** Time a customer's advance can be verified by an admin after checkout. */
+  @Value("${turf.payment-window-minutes:60}")
+  private int paymentWindowMinutes = 60;
 
   public record Context(UUID organizationId) {}
 
@@ -224,8 +229,10 @@ public class TurfService {
         > 0;
   }
 
+  /** Lock-free: occupied() already ignores expired holds, so public reads never block bookings. */
+  @Transactional(readOnly = true)
   public Object availability(Context c, UUID courtId, LocalDate date, int duration) {
-    var d = lockedCourt(c, courtId);
+    var d = court(c, courtId);
     var v = venue(c);
     List<Map<String, Object>> result = new ArrayList<>();
     for (int h = v.getOpeningHour(); h + duration <= v.getClosingHour(); h++) {
@@ -324,6 +331,8 @@ public class TurfService {
       Instant paymentExpiresAt) {}
 
   public Receipt checkout(Context c, Checkout request) {
+    organizationLock(c.organizationId());
+    enforceBookingLimit(c);
     var r = reservation(c, request.holdId());
     lockedCourt(c, r.getCourtId());
     em.refresh(r);
@@ -356,6 +365,10 @@ public class TurfService {
     b.setStatus(q.requiredAdvance().signum() == 0 ? "CONFIRMED" : "PENDING_PAYMENT");
     r.setKind("BOOKING");
     if ("CONFIRMED".equals(b.getStatus())) r.setExpiresAt(null);
+    else {
+      Instant deadline = Instant.now().plusSeconds(paymentWindowMinutes * 60L);
+      r.setExpiresAt(deadline.isAfter(r.getStartAt()) ? r.getStartAt() : deadline);
+    }
     reservations.save(r);
     bookings.saveAndFlush(b);
     return new Receipt(
@@ -409,7 +422,21 @@ public class TurfService {
     return TurfMapper.toEntity(bookings.saveAndFlush(b));
   }
 
-  /** Shared direct booking path used by the unauthenticated customer and authenticated admin APIs. */
+  /** Callers must hold the organization lock so concurrent bookings cannot pass the limit. */
+  private void enforceBookingLimit(Context c) {
+    int limit = core.entitlements(c.organizationId()).limits().getOrDefault("MAX_BOOKINGS", -1);
+    if (limit < 0) return;
+    long count =
+        em.createQuery(
+                "select count(b) from BookingDao b where b.organizationId=:org and b.status not in"
+                    + " ('CANCELLED','EXPIRED')",
+                Long.class)
+            .setParameter("org", c.organizationId())
+            .getSingleResult();
+    if (count >= limit) throw conflict("Booking limit reached");
+  }
+
+  /** Immediately confirmed booking used by the authenticated admin APIs. */
   public TurfModels.Booking createDirectBooking(
       Context c, Slot slot, String customerPhone, String customerName, String notes,
       String source, UUID createdByUserId) {
@@ -418,12 +445,7 @@ public class TurfService {
     if (!Boolean.TRUE.equals(entitlements.features().get(requiredFeature)))
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, requiredFeature + " feature disabled");
     organizationLock(c.organizationId());
-    int bookingLimit=entitlements.limits().getOrDefault("MAX_BOOKINGS",-1);
-    if(bookingLimit>=0) {
-      long count=em.createQuery("select count(b) from BookingDao b where b.organizationId=:org and b.status<>'CANCELLED'",Long.class)
-          .setParameter("org",c.organizationId()).getSingleResult();
-      if(count>=bookingLimit) throw conflict("Booking limit reached");
-    }
+    enforceBookingLimit(c);
     var court = lockedCourt(c, slot.courtId());
     var quote = quote(venue(c), court, slot);
     var reservation = reserve(c, court.getId(), quote, "BOOKING", null, null, null);

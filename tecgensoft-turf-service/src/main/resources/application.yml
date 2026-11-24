@@ -18,5 +18,6 @@ core:
   url: ${CORE_URL:http://localhost:8080}
   service-key: ${INTERNAL_SERVICE_KEY}
 turf:
+  payment-window-minutes: ${TURF_PAYMENT_WINDOW_MINUTES:60}
   swagger:
     server-url: ${TURF_API_URL:http://localhost:8081}

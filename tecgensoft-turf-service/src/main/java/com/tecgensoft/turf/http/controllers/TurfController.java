@@ -22,12 +22,11 @@ public class TurfController {
   private record Authorized(TurfService.Context context, UUID actor) {}
 
   private Authorized authorize(HttpServletRequest request, UUID organizationId, String permission) {
-    var tenant = core.resolve(request.getServerName());
-    if (!tenant.organizationId().equals(organizationId))
-      throw new org.springframework.web.server.ResponseStatusException(
-          org.springframework.http.HttpStatus.FORBIDDEN, "Organization access denied");
-    UUID actor = core.check(tenant, request.getHeader("Authorization"), permission);
-    return new Authorized(new TurfService.Context(tenant.organizationId()), actor);
+    // The organization comes from the path: check() requires a valid token, membership of that
+    // organization and the permission. Entitlements then reject suspended organizations.
+    UUID actor = core.check(organizationId, request.getHeader("Authorization"), permission);
+    core.entitlements(organizationId);
+    return new Authorized(new TurfService.Context(organizationId), actor);
   }
 
   private Object ok(Object value) {

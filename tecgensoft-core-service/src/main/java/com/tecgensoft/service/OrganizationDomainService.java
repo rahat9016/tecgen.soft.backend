@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -36,6 +37,21 @@ public class OrganizationDomainService {
             throw new ConflictException("hostnameAlreadyRegistered", new Object[]{host});
         }
         return id;
+    }
+
+    /** The organization and product a verified hostname belongs to. */
+    public record DomainTenant(UUID organizationId, String product, boolean active, String name, String logoUrl) {
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DomainTenant> findVerified(String hostname) {
+        return jdbc.query(
+                "select d.organization_id,d.product,o.is_active,o.name,o.logo_url from organization_domains d "
+                        + "join organizations o on o.id=d.organization_id "
+                        + "where d.hostname=? and d.verified=true",
+                (rs, n) -> new DomainTenant(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3),
+                        rs.getString(4), rs.getString(5)),
+                hostname.trim().toLowerCase(Locale.ROOT)).stream().findFirst();
     }
 
     @Transactional(readOnly = true)

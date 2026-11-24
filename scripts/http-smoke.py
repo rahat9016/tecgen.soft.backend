@@ -25,7 +25,7 @@ def request(base, path, body=None, token=None, host=None, method=None, expected=
     if token:
         headers['Authorization'] = 'Bearer ' + token
     if host:
-        headers['X-Frontend-Host'] = host
+        headers['X-Tenant-Host'] = host
     if key:
         headers['X-Service-Key'] = key
     req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None,

@@ -1,5 +1,7 @@
 package com.tecgensoft.turf.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.*;
@@ -7,12 +9,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class CoreClient {
   private final RestClient client;
+  // Only successful answers are cached. A suspension therefore takes effect within the
+  // entitlement lifetime, because every request also checks entitlements.
+  private final Cache<String, Tenant> tenants =
+      Caffeine.newBuilder().maximumSize(10_000).expireAfterWrite(Duration.ofSeconds(60)).build();
+  private final Cache<UUID, Entitlements> entitlements =
+      Caffeine.newBuilder().maximumSize(10_000).expireAfterWrite(Duration.ofSeconds(30)).build();
 
   public CoreClient(@Value("${core.url}") String url, @Value("${core.service-key}") String key) {
     var factory =
@@ -49,24 +58,38 @@ public class CoreClient {
   public record Access(UUID organizationId, String product, String permissionCode) {}
 
   public Tenant resolve(String host) {
+    Tenant cached = tenants.getIfPresent(host);
+    if (cached != null) return cached;
+    Tenant t;
     try {
-      var t =
+      t =
           client
               .post()
               .uri("/internal/v1/tenants/resolve")
               .body(Map.of("hostname", host))
               .retrieve()
               .body(Tenant.class);
-      if (t == null || t.organizationId() == null || !t.active() || !"TURF".equals(t.product()))
-        throw new IllegalStateException();
-      return t;
+    } catch (HttpClientErrorException.NotFound e) {
+      throw unknownTenant();
     } catch (Exception e) {
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "Tenant cannot be verified");
     }
+    // Core versions before the 404 answer reported an unknown hostname as an empty 200.
+    if (t == null || t.organizationId() == null || !"TURF".equals(t.product()))
+      throw unknownTenant();
+    if (!t.active())
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Organization is not active");
+    tenants.put(host, t);
+    return t;
   }
 
-  public UUID check(Tenant tenant, String authorization, String permission) {
+  private static ResponseStatusException unknownTenant() {
+    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization not found");
+  }
+
+  /** Never cached: a revoked token, membership or permission must take effect immediately. */
+  public UUID check(UUID organizationId, String authorization, String permission) {
     if (authorization == null || !authorization.startsWith("Bearer "))
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token required");
     Decision d;
@@ -76,10 +99,10 @@ public class CoreClient {
               .post()
               .uri("/internal/v1/access/check")
               .header("Authorization", authorization)
-              .body(new Access(tenant.organizationId(), "TURF", permission))
+              .body(new Access(organizationId, "TURF", permission))
               .retrieve()
               .body(Decision.class);
-    } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized e) {
+    } catch (HttpClientErrorException.Unauthorized e) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user access token");
     } catch (Exception e) {
       throw new ResponseStatusException(
@@ -92,9 +115,22 @@ public class CoreClient {
   }
 
   public Entitlements entitlements(UUID org) {
-    Entitlements entitlements;
+    Entitlements found = entitlements.getIfPresent(org);
+    if (found == null) {
+      found = fetchEntitlements(org);
+      if (found.active()) entitlements.put(org, found);
+    }
+    if (!found.active())
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "Organization has no active TURF subscription: " + found.subscriptionStatus());
+    return found;
+  }
+
+  private Entitlements fetchEntitlements(UUID org) {
+    Entitlements fetched;
     try {
-      entitlements =
+      fetched =
           client
               .get()
               .uri("/internal/v1/organizations/{id}/entitlements?product=TURF", org)
@@ -104,16 +140,12 @@ public class CoreClient {
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "Entitlements cannot be verified");
     }
-    if (entitlements == null
-        || !org.equals(entitlements.organizationId())
-        || entitlements.features() == null
-        || entitlements.limits() == null)
+    if (fetched == null
+        || !org.equals(fetched.organizationId())
+        || fetched.features() == null
+        || fetched.limits() == null)
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "Entitlements cannot be verified");
-    if (!entitlements.active())
-      throw new ResponseStatusException(
-          HttpStatus.FORBIDDEN,
-          "Organization has no active TURF subscription: " + entitlements.subscriptionStatus());
-    return entitlements;
+    return fetched;
   }
 }
