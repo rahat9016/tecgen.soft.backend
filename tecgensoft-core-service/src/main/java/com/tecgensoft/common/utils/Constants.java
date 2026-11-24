@@ -35,6 +35,10 @@ public class Constants {
     // ORGANIZATIONS
     public static final String ORGANIZATIONS = "/organizations";
 
+    // PACKAGES
+    public static final String PACKAGES = "/packages";
+    public static final String PACKAGE_ID = "/{packageId}";
+
     // SUBSCRIPTIONS & BILLING
     public static final String SUBSCRIPTIONS = "/subscriptions";
     public static final String SUBSCRIPTION_ID = "/{subscriptionId}";

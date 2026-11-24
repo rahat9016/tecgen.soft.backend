@@ -15,7 +15,7 @@ public class SubscriptionPaymentDao {
   @ManyToOne(fetch=FetchType.LAZY,optional=false) @JoinColumn(name="subscription_id",nullable=false) private SubscriptionDao subscription;
   @Column(nullable=false,precision=12,scale=2) private BigDecimal amount;
   @Column(nullable=false,length=3) private String currency;
-  @Column(name="payment_method",nullable=false,length=32) private String paymentMethod;
+  @Column(name="payment_method",length=32) private String paymentMethod;
   @Column(name="payment_status",nullable=false,length=16) private String paymentStatus;
   @Column(name="transaction_id",length=160) private String transactionId;
   @Column(name="payment_date") private Instant paymentDate;

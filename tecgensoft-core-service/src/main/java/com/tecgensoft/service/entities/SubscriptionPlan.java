@@ -3,13 +3,18 @@ package com.tecgensoft.service.entities;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.BillingPeriod;
 
+import lombok.Builder;
+import lombok.With;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public record SoftwarePackage(
+@Builder
+@With
+public record SubscriptionPlan(
         UUID id,
         String code,
         int version,

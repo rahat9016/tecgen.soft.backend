@@ -1,5 +1,6 @@
 package com.tecgensoft.http.dtos.requests;
 
+import com.tecgensoft.service.entities.SubscriptionPlan;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.BillingPeriod;
 import jakarta.validation.constraints.DecimalMin;
@@ -10,40 +11,70 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-public record CreatePackageRequest(
-        @NotBlank
-        @Pattern(regexp = "[A-Za-z0-9_-]{2,60}")
-        String code,
+@Setter
+@Getter
+@NoArgsConstructor
+public class CreatePackageRequest {
 
-        @NotBlank
-        @Size(max = 120)
-        String displayName,
+    @NotBlank
+    @Pattern(regexp = "[A-Za-z0-9_-]{2,60}")
+    private String code;
 
-        @NotNull
-        ProductCode product,
+    @NotBlank
+    @Size(max = 120)
+    private String displayName;
 
-        BillingPeriod billingPeriod,
+    @NotNull
+    private ProductCode product;
 
-        @Size(max = 2000)
-        String description,
+    private BillingPeriod billingPeriod;
 
-        @NotBlank
-        @Pattern(regexp = "[A-Z]{3}")
-        String currency,
+    @Size(max = 2000)
+    private String description;
 
-        @NotNull
-        @DecimalMin("0.00")
-        @Digits(integer = 10, fraction = 2)
-        BigDecimal price,
+    @NotBlank
+    @Pattern(regexp = "[A-Z]{3}")
+    private String currency;
 
-        @NotEmpty
-        Set<@NotBlank String> features,
+    @NotNull
+    @DecimalMin("0.00")
+    @Digits(integer = 10, fraction = 2)
+    private BigDecimal price;
 
-        @NotNull
-        Map<@NotBlank String, @NotNull @Min(-1) Integer> limits
-) { }
+    @NotEmpty
+    private Set<@NotBlank String> features;
+
+    @NotNull
+    private Map<@NotBlank String, @NotNull @Min(-1) Integer> limits;
+
+    public SubscriptionPlan toEntity() {
+        return SubscriptionPlan.builder()
+                .code(code.trim().toUpperCase(Locale.ROOT))
+                .displayName(displayName.trim())
+                .product(product)
+                .billingPeriod(billingPeriod == null ? BillingPeriod.MONTHLY : billingPeriod)
+                .description(description == null ? null : description.trim())
+                .currency(currency.trim().toUpperCase(Locale.ROOT))
+                .price(price)
+                .features(features.stream()
+                        .map(value -> value.trim().toUpperCase(Locale.ROOT))
+                        .collect(Collectors.toUnmodifiableSet()))
+                .limits(limits.entrySet().stream()
+                        .collect(Collectors.toUnmodifiableMap(
+                                entry -> entry.getKey().trim().toUpperCase(Locale.ROOT),
+                                Map.Entry::getValue)))
+                .active(true)
+                .availableForSale(true)
+                .build();
+    }
+}

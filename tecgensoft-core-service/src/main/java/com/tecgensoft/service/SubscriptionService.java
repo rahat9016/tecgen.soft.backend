@@ -33,8 +33,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional
@@ -45,8 +43,6 @@ public class SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionPaymentRepository paymentRepository;
     private final OrganizationPermissionGranter permissionGranter;
-    private final JdbcTemplate jdbc;
-    private final ObjectMapper objectMapper;
     @Value("${subscriptions.turf-basic-trial-days:30}")
     private int turfBasicTrialDays;
 
@@ -106,7 +102,7 @@ public class SubscriptionService {
         payment.setSubscription(subscription);
         payment.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
         payment.setCurrency(subscription.getPackageDao().getCurrency());
-        payment.setPaymentMethod(method == null ? "N/A" : method);
+        payment.setPaymentMethod(method);
         payment.setPaymentStatus(status);
         payment.setTransactionId(transactionId);
         if ("PAID".equals(status)) {
@@ -427,14 +423,6 @@ public class SubscriptionService {
         var features=new java.util.LinkedHashMap<String,Object>();
         var limits=new java.util.LinkedHashMap<String,Integer>(packageDao.getLimits());
         packageDao.getFeatures().forEach(code->features.put(code,true));
-        jdbc.query("select f.code,f.feature_type,pf.feature_value::text from package_features pf join features f on f.id=pf.feature_id where pf.package_id=? and f.is_active",
-                rs->{while(rs.next()) {
-                    try {
-                        Object value=objectMapper.readValue(rs.getString(3),Object.class);
-                        if("NUMBER".equals(rs.getString(2))) limits.put(rs.getString(1),((Number)value).intValue());
-                        else features.put(rs.getString(1),value);
-                    } catch(java.io.IOException ex){throw new IllegalStateException("Invalid package feature JSON",ex);}
-                } return null;},packageDao.getId());
         return new FeatureData(java.util.Map.copyOf(features),java.util.Map.copyOf(limits));
     }
     private record FeatureData(java.util.Map<String,Object> features,java.util.Map<String,Integer> limits) {}

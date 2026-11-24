@@ -1,6 +1,6 @@
 package com.tecgensoft.http.dtos.responses;
 
-import com.tecgensoft.service.entities.SoftwarePackage;
+import com.tecgensoft.service.entities.SubscriptionPlan;
 import com.tecgensoft.service.enums.ProductCode;
 import com.tecgensoft.service.enums.BillingPeriod;
 
@@ -27,7 +27,7 @@ public record PackageResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
-    public PackageResponse(SoftwarePackage value) {
+    public PackageResponse(SubscriptionPlan value) {
         this(value.id(), value.code(), value.version(), value.displayName(), value.product(), value.billingPeriod(),
                 value.description(), value.currency(), value.price(), value.features(), value.limits(),
                 value.active(), value.availableForSale(), value.createdAt(), value.updatedAt());
