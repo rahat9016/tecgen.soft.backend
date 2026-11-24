@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: tecgensoft-gateway
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    encoding:
+      # Forward Content-Type exactly as the client sent it.
+      enabled: false
+    multipart:
+      # Uploads are streamed through; Core enforces its own 10 MB limit.
+      enabled: false
+server:
+  port: ${PORT:8000}
+  # Client addresses come from ClientIpResolver, which trusts only configured proxies.
+  forward-headers-strategy: none
+  error:
+    include-message: never
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8001}
+  endpoints:
+    access:
+      default: none
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      access: read-only
+gateway:
+  core-url: ${CORE_URL:http://localhost:8080}
+  turf-url: ${TURF_URL:http://localhost:8081}
+  service-key: ${INTERNAL_SERVICE_KEY}
+  # Exact origins of Tecgen Soft's own panels. Organization sites are read from Core instead.
+  platform-origins: ${PLATFORM_ORIGINS:https://admin.tecgensoft.com}
+  # Local development only: accept http and custom ports for organization origins.
+  allow-insecure-origins: ${ALLOW_INSECURE_ORIGINS:false}
+  trusted-proxies: ${TRUSTED_PROXIES:}
+  ssr-client-ips: ${SSR_CLIENT_IPS:}
+  max-body-bytes: 11534336
+  max-site-body-bytes: 65536
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    ssr-multiplier: 25
+    overall: {requests: 600, per: 1m}
+    read: {requests: 120, per: 1m}
+    hold: {requests: 10, per: 10m}
+    booking: {requests: 10, per: 1m}
+    login: {requests: 5, per: 1m}
+    refresh: {requests: 30, per: 1m}
+    admin: {requests: 300, per: 1m}
