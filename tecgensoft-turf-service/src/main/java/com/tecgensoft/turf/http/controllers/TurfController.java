@@ -56,43 +56,7 @@ public class TurfController {
             authorize(r, organizationId, "TURF_SETTINGS_UPDATE").context(), body.toEntity()));
   }
 
-  @GetMapping("/courts")
-  public Object courts(HttpServletRequest r, @PathVariable UUID organizationId) {
-    return ok(service.courts(authorize(r, organizationId, "TURF_COURT_VIEW").context(), false));
-  }
-
-  @GetMapping("/courts/{id}")
-  public Object court(HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    return ok(
-        com.tecgensoft.turf.mapper.CourtMapper.toEntity(
-            service.court(authorize(r, organizationId, "TURF_COURT_VIEW").context(), id)));
-  }
-
-  @PostMapping("/courts")
-  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-  public Object court(
-      HttpServletRequest r, @PathVariable UUID organizationId, @Valid @RequestBody Court body) {
-    return ok(
-        service.createCourt(authorize(r, organizationId, "TURF_COURT_CREATE").context(), body.toEntity()));
-  }
-
-  @PatchMapping("/courts/{id}")
-  public Object court(
-      HttpServletRequest r,
-      @PathVariable UUID organizationId,
-      @PathVariable UUID id,
-      @Valid @RequestBody Court body) {
-    return ok(
-        service.updateCourt(
-            authorize(r, organizationId, "TURF_COURT_UPDATE").context(), id, body.toEntity()));
-  }
-
-  @DeleteMapping("/courts/{id}")
-  public Object deleteCourt(
-      HttpServletRequest r, @PathVariable UUID organizationId, @PathVariable UUID id) {
-    service.deleteCourt(authorize(r, organizationId, "TURF_COURT_DELETE").context(), id);
-    return ok("Court deactivated");
-  }
+  // Court CRUD moved to CourtController (Controller -> DTO -> CourtService -> Mapper -> Repository).
 
   @GetMapping("/availability")
   public Object availability(
